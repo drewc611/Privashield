@@ -7,6 +7,7 @@ from .bus import EventBus
 from .firewall import FirewallController
 from .realtime import EventHub
 from .repository import EventRepository
+from .response import ResponseStore
 from .sensors import SensorRegistry
 
 
@@ -40,3 +41,7 @@ def get_ai_analyzer(request: Request) -> OllamaThreatAnalyzer:
 
 def get_anomaly_engine(request: Request) -> AnomalyEngine:
     return request.app.state.anomaly_engine
+
+
+def get_response_store(request: Request) -> ResponseStore:
+    return request.app.state.response_store

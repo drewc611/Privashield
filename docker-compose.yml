@@ -69,10 +69,27 @@ services:
     build:
       context: .
       dockerfile: apps/dashboard/Dockerfile
-    ports:
-      - "127.0.0.1:${PRIVASHIELD_DASHBOARD_PORT:-8080}:80"
     depends_on:
       - api
+    restart: unless-stopped
+
+  waf:
+    image: ghcr.io/coreruleset/coraza-crs:4.25-caddy-alpine-lts
+    environment:
+      BACKEND: dashboard:80
+      PORT: "8080"
+      CORAZA_RULE_ENGINE: "On"
+      PARANOIA: "1"
+      BLOCKING_PARANOIA: "1"
+      CORAZA_AUDIT_LOG_FORMAT: "JSON"
+      CORAZA_AUDIT_ENGINE: "RelevantOnly"
+      CORAZA_AUDIT_LOG: "/var/log/coraza/audit.log"
+    volumes:
+      - privashield-waf-audit:/var/log/coraza
+    ports:
+      - "127.0.0.1:${PRIVASHIELD_DASHBOARD_PORT:-8080}:8080"
+    depends_on:
+      - dashboard
     restart: unless-stopped
 
 volumes:
@@ -80,3 +97,4 @@ volumes:
   privashield-nats:
   privashield-ollama:
   privashield-audit:
+  privashield-waf-audit:
