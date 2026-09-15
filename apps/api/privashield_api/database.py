@@ -37,11 +37,13 @@ class SecurityEventRecord(Base):
     summary: Mapped[str] = mapped_column(String(4096))
     raw_ref: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
-    correlation_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
+    correlation_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), nullable=True, index=True
+    )
     schema_version: Mapped[str] = mapped_column(String(16), default="1.0")
 
     @classmethod
-    def from_event(cls, event: SecurityEvent) -> "SecurityEventRecord":
+    def from_event(cls, event: SecurityEvent) -> SecurityEventRecord:
         return cls(
             id=event.id,
             timestamp=event.timestamp,
