@@ -16,15 +16,25 @@ services:
 
   nats:
     image: nats:2.10-alpine
-    command: ["-js", "-sd", "/data"]
+    command: ["-js", "-sd", "/data", "-m", "8222"]
     volumes:
       - privashield-nats:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/healthz >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
   ollama:
     image: ollama/ollama:latest
     volumes:
       - privashield-ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
 
   api:
@@ -36,15 +46,37 @@ services:
       PRIVASHIELD_LOG_LEVEL: ${PRIVASHIELD_LOG_LEVEL:-INFO}
       PRIVASHIELD_DATABASE_ENABLED: "true"
       PRIVASHIELD_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-privashield}:${POSTGRES_PASSWORD:-privashield}@postgres:5432/${POSTGRES_DB:-privashield}
-      PRIVASHIELD_ENFORCEMENT_MODE: observe
+      PRIVASHIELD_ENFORCEMENT_MODE: ${PRIVASHIELD_ENFORCEMENT_MODE:-observe}
+      PRIVASHIELD_NATS_ENABLED: "true"
+      PRIVASHIELD_NATS_URL: nats://nats:4222
+      PRIVASHIELD_NATS_STREAM: PRIVASHIELD_EVENTS
+      PRIVASHIELD_OLLAMA_ENABLED: ${PRIVASHIELD_OLLAMA_ENABLED:-false}
+      PRIVASHIELD_OLLAMA_BASE_URL: http://ollama:11434
+      PRIVASHIELD_OLLAMA_MODEL: ${PRIVASHIELD_OLLAMA_MODEL:-gemma3}
+      PRIVASHIELD_AUDIT_PATH: /data/audit/audit.jsonl
+    volumes:
+      - privashield-audit:/data/audit
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    ports:
+      - "127.0.0.1:${PRIVASHIELD_DASHBOARD_PORT:-8080}:80"
+    depends_on:
+      - api
     restart: unless-stopped
 
 volumes:
   privashield-postgres:
   privashield-nats:
   privashield-ollama:
+  privashield-audit:

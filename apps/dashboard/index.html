@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>PrivaShield Security Console</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="shield">P</div>
+        <div><strong>PrivaShield</strong><span>LOCAL SECURITY CONSOLE</span></div>
+      </div>
+      <nav>
+        <button class="nav active" data-view="overview">Overview</button>
+        <button class="nav" data-view="activity">Activity</button>
+        <button class="nav" data-view="firewall">AI Firewall</button>
+        <button class="nav" data-view="interpreter">Threat Interpreter</button>
+        <button class="nav" data-view="sensors">Sensors</button>
+        <button class="nav" data-view="audit">Audit</button>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="dot" id="connectionDot"></span>
+        <span id="connectionText">Connecting</span>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">PRIVACY-FIRST THREAT DEFENSE</p>
+          <h1>Threat Shield</h1>
+        </div>
+        <div class="header-actions">
+          <span class="pill" id="systemMode">OBSERVE</span>
+          <button class="button secondary" id="refreshButton">Refresh</button>
+        </div>
+      </header>
+
+      <section class="view active" id="overview">
+        <div class="status-banner">
+          <div>
+            <span class="status-icon">✓</span>
+            <div><strong id="protectionState">Monitoring locally</strong><p id="componentState">Loading component state</p></div>
+          </div>
+          <span class="privacy-badge">NO CLOUD REQUIRED</span>
+        </div>
+        <div class="metrics">
+          <article><span>Security Events</span><strong id="metricEvents">0</strong><small>retained locally</small></article>
+          <article><span>High / Critical</span><strong id="metricHigh">0</strong><small>current dataset</small></article>
+          <article><span>Active Sensors</span><strong id="metricSensors">0</strong><small id="sensorTotal">0 registered</small></article>
+          <article><span>Audit Chain</span><strong id="metricAudit">CHECKING</strong><small id="auditCount">0 entries</small></article>
+        </div>
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">LIVE TELEMETRY</p><h2>Activity feed</h2></div><span class="live">LIVE</span></div>
+            <div id="liveFeed" class="feed"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">SYSTEM</p><h2>Component state</h2></div></div>
+            <div class="component-list" id="componentList"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="activity">
+        <article class="panel full">
+          <div class="panel-head"><div><p class="eyebrow">EVENT STORE</p><h2>Recent security events</h2></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Severity</th><th>Source</th><th>Type</th><th>Summary</th><th>Source IP</th><th>Destination IP</th></tr></thead><tbody id="eventTable"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="firewall">
+        <div class="grid two">
+          <article class="panel">
+            <p class="eyebrow">POLICY CONTROL</p><h2>AI Firewall simulation</h2>
+            <p class="muted">Phase 1 evaluates policy but cannot modify nftables, eBPF, interfaces, or sessions.</p>
+            <label>Mode<select id="firewallMode"><option value="observe">Observe</option><option value="simulate">Simulate</option></select></label>
+            <label>Sensitivity threshold <span id="thresholdValue">0.85</span><input id="firewallThreshold" type="range" min="0" max="1" step="0.01" value="0.85"></label>
+            <button class="button" id="saveFirewall">Save policy</button>
+          </article>
+          <article class="panel danger-panel">
+            <p class="eyebrow">CONTAINMENT</p><h2>Network isolation</h2>
+            <p>Privileged network containment is intentionally unavailable in Phase 1.</p>
+            <button class="button danger" disabled>Kill switch unavailable</button>
+            <small>Active enforcement requires a separate reviewed data-plane release.</small>
+          </article>
+        </div>
+        <article class="panel full">
+          <p class="eyebrow">DECISION TEST</p><h2>Evaluate traffic risk</h2>
+          <div class="form-row"><label>Risk score<input id="riskScore" type="number" min="0" max="1" step="0.01" value="0.90"></label><label>Reason<input id="riskReason" value="Analyst simulation"></label><button class="button" id="evaluateFirewall">Evaluate</button></div>
+          <pre id="firewallResult">No simulation run yet.</pre>
+        </article>
+      </section>
+
+      <section class="view" id="interpreter">
+        <div class="grid two">
+          <article class="panel">
+            <p class="eyebrow">LOCAL MODEL</p><h2>Threat Interpreter</h2>
+            <p class="muted" id="aiState">Checking local AI state</p>
+            <label>Event ID<input id="analysisEventId" placeholder="Choose an event from Activity or use latest"></label>
+            <label>Analyst question<textarea id="analysisQuestion" rows="5" placeholder="What happened, why does it matter, and what should I investigate next?"></textarea></label>
+            <button class="button" id="analyzeThreat">Analyze locally</button>
+          </article>
+          <article class="panel">
+            <p class="eyebrow">ANALYSIS</p><h2>Model response</h2>
+            <div id="analysisResult" class="analysis-result">No analysis requested.</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="sensors">
+        <article class="panel full"><div class="panel-head"><div><p class="eyebrow">COLLECTORS</p><h2>Sensor health</h2></div></div><div id="sensorCards" class="sensor-cards"></div></article>
+      </section>
+
+      <section class="view" id="audit">
+        <div class="grid two"><article class="panel"><p class="eyebrow">INTEGRITY</p><h2>Cryptographic audit chain</h2><div id="auditVerification"></div></article><article class="panel"><p class="eyebrow">RECENT ACTIONS</p><h2>Ledger entries</h2><div id="auditEntries" class="audit-list"></div></article></div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
