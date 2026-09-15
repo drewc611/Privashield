@@ -1,68 +1,114 @@
-# Roadmap
+# PrivaShield Roadmap
 
-This roadmap is capability-oriented. Dates are intentionally omitted until implementation velocity and test coverage are known.
+This roadmap is capability-oriented. Dates are intentionally omitted until release qualification and sustained test/operational evidence justify them.
 
-## Phase 1. Requirements and MVP architecture
+A checked item means the capability exists in the repository. It does **not** imply production certification or authorization for privileged enforcement.
 
-- project governance and documentation
-- normalized event, alert, classification, policy, action, audit, and system-state models
-- FastAPI control plane
-- PostgreSQL persistence
-- Redis Streams event transport
-- local model adapter with Ollama-compatible implementation
-- observe-only network sensor adapter
-- local React/Next.js dashboard shell
-- Docker Compose single-machine deployment
-- health, metrics, event feed, classification, summarization, policy, and configuration APIs
-- tamper-evident audit-chain prototype
+## Foundation and local MVP
 
-## Phase 2. Detection foundation
+- [x] Project governance and documentation foundation
+- [x] Canonical `SecurityEvent` contract
+- [x] FastAPI control plane
+- [x] PostgreSQL persistence
+- [x] NATS JetStream event publishing
+- [x] WebSocket live-event feed
+- [x] Ollama-compatible local AI analysis
+- [x] Sensor heartbeat/health registry
+- [x] Tamper-evident audit-chain implementation
+- [x] Docker Compose self-hosted stack
+- [x] Local operator dashboard
+- [x] Loopback-only reverse-proxy publishing
+- [x] Suricata EVE normalization
+- [x] Zeek JSON normalization
+- [x] Passive live Suricata and Zeek sensor profile
 
-- packet/flow feature extraction
-- signature/rule adapter support
-- anomaly scoring framework
-- sensitive-data classification pipeline
-- endpoint/file-system event ingestion
-- ransomware behavior heuristics
-- analyst feedback and labeling loop
-- detection evaluation harness
+## Detection and privacy intelligence
 
-## Phase 3. Controlled enforcement
+- [x] Local DLP classification
+- [x] PII, PHI-context, financial, payment-card, and credential pattern detection
+- [x] Permission-tier redaction
+- [x] Identity anomaly scoring
+- [x] Impossible-travel detection signal
+- [x] Rapid-download detection signal
+- [x] Ransomware behavior scoring
+- [x] File-risk scoring
+- [x] Read-only host filesystem monitor
+- [ ] Cross-sensor incident correlation
+- [ ] Analyst feedback and labeling loop
+- [ ] Detection evaluation corpus and benchmark harness
+- [ ] Model/rule quality metrics and regression thresholds
 
-- policy engine
-- bounded firewall decision service
-- eBPF/nftables/iptables adapters as platform permits
-- reverse-proxy/WAF integration
-- explicit observe, alert, block, quarantine modes
-- kill switch and deterministic rollback
-- policy signing and approval flow
+## Perimeter and response orchestration
 
-## Phase 4. DLP and SOAR
+- [x] Coraza + Caddy WAF profile
+- [x] OWASP Core Rule Set integration
+- [x] WAF JSON audit logging
+- [x] Firewall allow/drop simulation
+- [x] Approval-gated response-action state machine
+- [x] Simulated block-IP workflow
+- [x] Simulated interface-isolation workflow
+- [x] Simulated session-termination workflow
+- [x] Simulated token-revocation workflow
+- [x] Simulated file-quarantine workflow
+- [x] Simulated process-stop workflow
+- [x] Explicit `privileged_execution=false` capability boundary
+- [ ] Deterministic signed policy model
+- [ ] Policy versioning and approval history
+- [ ] Kill-switch and rollback qualification for future enforcement
 
-- outbound content inspection
-- redaction/masking actions
-- scoped session and identity isolation adapters
-- credential-revocation integrations
-- playbooks with authorization and rollback
-- approval gates for high-impact actions
+## Security and software assurance
 
-## Phase 5. Enterprise hardening
+- [x] CI lint and test gates
+- [x] Docker Compose validation
+- [x] Dashboard JavaScript syntax validation
+- [x] CodeQL workflow
+- [x] Pull-request dependency review
+- [x] Dependabot configuration
+- [x] Shared AI-agent safety harness
+- [x] Specialized project agents
+- [ ] SBOM generation in CI
+- [ ] Build provenance / artifact attestation
+- [ ] Signed release artifacts
+- [ ] Automated secret-scanning policy validation
+- [ ] End-to-end security regression suite
 
-- role-based access control
-- external identity providers
-- HA deployment patterns
-- signed releases and provenance
-- SBOM and dependency attestation
-- expanded observability and SIEM export
-- retention controls and backup/restore
-- performance and resilience qualification
+## Operator and enterprise hardening
 
-## Phase 6. Ecosystem
+- [ ] Role-based access control
+- [ ] External identity provider integration
+- [ ] Multi-user audit attribution
+- [ ] Retention-policy controls
+- [ ] Backup/restore qualification
+- [ ] SIEM export connectors
+- [ ] High-availability deployment pattern
+- [ ] Performance/load characterization
+- [ ] Resilience and failure-injection testing
+- [ ] Upgrade/migration qualification
 
-- plugin SDK
-- rule/model packs
-- external telemetry adapters
-- documented integration contracts
-- packaged desktop/local installer options
+## Future privileged enforcement
+
+The following work is intentionally gated. None of it should be considered active merely because simulation/orchestration exists.
+
+- [ ] Dedicated privileged enforcement service
+- [ ] eBPF/XDP data plane
+- [ ] nftables adapter
+- [ ] network/session quarantine execution
+- [ ] process containment execution
+- [ ] credential/session revocation adapters
+- [ ] deterministic rollback and recovery controller
+- [ ] signed policy approval required before enforcement
+- [ ] explicit production kill switch
+
+Privileged enforcement cannot be enabled by AI output. It requires a separately reviewed deterministic data plane, human-approved architecture change, rollback controls, tests, and operational qualification.
+
+## Packaging and ecosystem
+
+- [ ] First signed pre-release
+- [ ] Versioned installation bundles
+- [ ] Desktop/local wrapper evaluation
+- [ ] Plugin SDK
+- [ ] External telemetry adapter SDK
+- [ ] Rule/model packs
+- [ ] Documented third-party integration contracts
 
 Roadmap items move only when their security, privacy, performance, failure-mode, and rollback criteria are defined and testable.
