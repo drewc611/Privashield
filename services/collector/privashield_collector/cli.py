@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from uuid import NAMESPACE_DNS, UUID, uuid5
 
 from .client import CollectorClient
 from .normalize import NormalizationError, normalize_suricata, normalize_zeek
@@ -38,6 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument("--follow", action="store_true")
     parser.add_argument("--zeek-log-type")
+    parser.add_argument("--sensor-id", type=UUID)
+    parser.add_argument("--sensor-name")
     parser.add_argument(
         "--include-application-metadata",
         action="store_true",
@@ -48,8 +52,27 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    hostname = socket.gethostname()
+    sensor_id = args.sensor_id or uuid5(NAMESPACE_DNS, f"privashield:{hostname}:{args.source}")
+    sensor_name = args.sensor_name or f"{args.source}-{hostname}"
+
     with CollectorClient(args.api_url) as client:
+        client.heartbeat(
+            sensor_id=sensor_id,
+            name=sensor_name,
+            sensor_type=args.source,
+            hostname=hostname,
+        )
+        last_heartbeat = time.monotonic()
         for record in _records(args.file, follow=args.follow):
+            if time.monotonic() - last_heartbeat >= 20:
+                client.heartbeat(
+                    sensor_id=sensor_id,
+                    name=sensor_name,
+                    sensor_type=args.source,
+                    hostname=hostname,
+                )
+                last_heartbeat = time.monotonic()
             if args.source == "suricata":
                 event = normalize_suricata(
                     record,
@@ -61,6 +84,7 @@ def main() -> int:
                     log_type=args.zeek_log_type,
                     include_application_metadata=args.include_application_metadata,
                 )
+            event.sensor_id = sensor_id
             client.send(event)
     return 0
 

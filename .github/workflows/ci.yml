@@ -25,3 +25,7 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest -q
+      - name: Validate dashboard JavaScript
+        run: node --check apps/dashboard/app.js
+      - name: Validate Compose
+        run: docker compose config >/dev/null
