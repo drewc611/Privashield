@@ -1,6 +1,7 @@
 from fastapi import Request
 
 from .ai import OllamaThreatAnalyzer
+from .anomaly import AnomalyEngine
 from .audit import AuditLedger
 from .bus import EventBus
 from .firewall import FirewallController
@@ -35,3 +36,7 @@ def get_firewall_controller(request: Request) -> FirewallController:
 
 def get_ai_analyzer(request: Request) -> OllamaThreatAnalyzer:
     return request.app.state.ai_analyzer
+
+
+def get_anomaly_engine(request: Request) -> AnomalyEngine:
+    return request.app.state.anomaly_engine

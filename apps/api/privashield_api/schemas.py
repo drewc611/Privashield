@@ -163,3 +163,70 @@ class AuditVerification(BaseModel):
     valid: bool
     entries: int
     first_invalid_sequence: int | None = None
+
+
+class ClassificationMatch(BaseModel):
+    data_type: str
+    start: int
+    end: int
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class DLPClassifyRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=200000)
+    permission_tier: Literal["public", "internal", "privileged"] = "internal"
+
+
+class DLPClassification(BaseModel):
+    sensitivity: Literal["public", "internal", "confidential", "restricted"]
+    labels: list[str]
+    matches: list[ClassificationMatch]
+    redacted_text: str
+
+
+class IdentityObservation(BaseModel):
+    user_id: str = Field(min_length=1, max_length=256)
+    timestamp: datetime
+    event_type: Literal["login", "download", "api", "other"]
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    downloaded_bytes: int = Field(default=0, ge=0)
+
+
+class AnomalyAssessment(BaseModel):
+    user_id: str
+    risk_score: float = Field(ge=0.0, le=1.0)
+    severity: Severity
+    reasons: list[str]
+
+
+class RansomwareObservation(BaseModel):
+    window_seconds: float = Field(gt=0, le=3600)
+    file_operations: int = Field(ge=0)
+    renamed_files: int = Field(ge=0)
+    extension_changes: int = Field(ge=0)
+    high_entropy_writes: int = Field(ge=0)
+    distinct_directories: int = Field(default=1, ge=0)
+
+
+class RansomwareAssessment(BaseModel):
+    risk_score: float = Field(ge=0.0, le=1.0)
+    severity: Severity
+    reasons: list[str]
+    recommended_action: str
+    enforced: bool = False
+
+
+class FileRiskRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=512)
+    size_bytes: int = Field(ge=0)
+    entropy: float = Field(ge=0.0, le=8.0)
+    sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    known_signature_match: bool = False
+
+
+class FileRiskAssessment(BaseModel):
+    risk_score: float = Field(ge=0.0, le=1.0)
+    severity: Severity
+    indicators: list[str]
+    classification: Literal["low-risk", "suspicious", "high-risk"]
