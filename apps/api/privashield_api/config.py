@@ -17,7 +17,17 @@ class Settings(BaseSettings):
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
     ]
+    nats_enabled: bool = False
+    nats_url: str = "nats://127.0.0.1:4222"
+    nats_stream: str = "PRIVASHIELD_EVENTS"
+    ollama_enabled: bool = False
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "gemma3"
+    audit_path: str | None = None
+    sensor_ttl_seconds: int = 60
 
     model_config = SettingsConfigDict(
         env_prefix="PRIVASHIELD_",

@@ -18,6 +18,8 @@ async def system_status(request: Request) -> SystemStatus:
         status="ok",
         environment=settings.environment,
         database="enabled" if settings.database_enabled else "memory",
-        enforcement_mode=settings.enforcement_mode,
+        event_bus=request.app.state.event_bus.status,
+        ai="enabled" if settings.ollama_enabled else "disabled",
+        enforcement_mode=request.app.state.firewall_controller.config.mode,
         enforcement_active=False,
     )
