@@ -1,0 +1,55 @@
+name: Feature request
+description: Propose a product, detection, integration, architecture, or usability improvement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What security, privacy, operational, or user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the result without prescribing implementation unless necessary.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: Optional implementation or architecture idea.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Network sensing
+        - Firewall or WAF
+        - AI analysis
+        - DLP/privacy
+        - Malware/ransomware
+        - User anomaly detection
+        - SOAR/response
+        - Dashboard
+        - API/backend
+        - Audit/cryptography
+        - Deployment/operations
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and privacy considerations
+      description: Note new privileges, data collection, external services, trust boundaries, or enforcement behavior.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What observable behavior would make the feature complete?
