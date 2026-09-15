@@ -16,6 +16,7 @@ from .database import build_engine, build_session_factory, initialize_schema
 from .firewall import FirewallController
 from .realtime import EventHub
 from .repository import InMemoryEventRepository, SqlEventRepository
+from .response import ResponseStore
 from .routes.ai import router as ai_router
 from .routes.anomaly import router as anomaly_router
 from .routes.audit import router as audit_router
@@ -26,6 +27,7 @@ from .routes.health import router as health_router
 from .routes.malware import router as malware_router
 from .routes.ransomware import router as ransomware_router
 from .routes.realtime import router as realtime_router
+from .routes.response import router as response_router
 from .routes.sensors import router as sensors_router
 from .sensors import SensorRegistry
 
@@ -42,6 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.sensor_registry = SensorRegistry(resolved_settings.sensor_ttl_seconds)
         app.state.firewall_controller = FirewallController(resolved_settings.enforcement_mode)
         app.state.anomaly_engine = AnomalyEngine()
+        app.state.response_store = ResponseStore()
         app.state.ai_analyzer = OllamaThreatAnalyzer(
             resolved_settings.ollama_base_url,
             resolved_settings.ollama_model,
@@ -95,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         anomaly_router,
         ransomware_router,
         malware_router,
+        response_router,
         audit_router,
         realtime_router,
     ):
