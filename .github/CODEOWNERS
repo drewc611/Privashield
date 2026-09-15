@@ -1,0 +1,11 @@
+# Default ownership
+* @drewc611
+
+# Security-sensitive architecture and policy
+/SECURITY.md @drewc611
+/docs/SECURITY_ARCHITECTURE.md @drewc611
+/docs/THREAT_MODEL.md @drewc611
+/docs/AI_MODEL_GOVERNANCE.md @drewc611
+/docs/NETWORK_ENFORCEMENT.md @drewc611
+/docs/AUDIT_LOGGING.md @drewc611
+/enforcement/ @drewc611
