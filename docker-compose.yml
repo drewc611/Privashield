@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-privashield}
+      POSTGRES_USER: ${POSTGRES_USER:-privashield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-privashield}
+    volumes:
+      - privashield-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-privashield} -d ${POSTGRES_DB:-privashield}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-sd", "/data"]
+    volumes:
+      - privashield-nats:/data
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - privashield-ollama:/root/.ollama
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      PRIVASHIELD_ENVIRONMENT: ${PRIVASHIELD_ENVIRONMENT:-development}
+      PRIVASHIELD_LOG_LEVEL: ${PRIVASHIELD_LOG_LEVEL:-INFO}
+      PRIVASHIELD_DATABASE_ENABLED: "true"
+      PRIVASHIELD_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-privashield}:${POSTGRES_PASSWORD:-privashield}@postgres:5432/${POSTGRES_DB:-privashield}
+      PRIVASHIELD_ENFORCEMENT_MODE: observe
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  privashield-postgres:
+  privashield-nats:
+  privashield-ollama:
