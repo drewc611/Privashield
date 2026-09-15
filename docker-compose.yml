@@ -106,9 +106,86 @@ services:
       - api
     restart: unless-stopped
 
+  suricata:
+    profiles: ["network-sensors"]
+    image: jasonish/suricata:8.0
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    command: ["-i", "${PRIVASHIELD_NETWORK_INTERFACE:-eth0}"]
+    volumes:
+      - privashield-suricata-logs:/var/log/suricata
+      - privashield-suricata-state:/var/lib/suricata
+    restart: unless-stopped
+
+  suricata-collector:
+    profiles: ["network-sensors"]
+    build:
+      context: .
+      dockerfile: services/collector/Dockerfile
+    command:
+      - --source
+      - suricata
+      - --file
+      - /sensor/eve.json
+      - --api-url
+      - http://api:8000
+      - --follow
+    volumes:
+      - privashield-suricata-logs:/sensor:ro
+    depends_on:
+      - api
+      - suricata
+    restart: unless-stopped
+
+  zeek:
+    profiles: ["network-sensors"]
+    image: zeek/zeek:lts
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command:
+      - sh
+      - -lc
+      - >-
+        mkdir -p /logs && cd /logs && exec zeek
+        -i ${PRIVASHIELD_NETWORK_INTERFACE:-eth0}
+        LogAscii::use_json=T
+    volumes:
+      - privashield-zeek-logs:/logs
+    restart: unless-stopped
+
+  zeek-collector:
+    profiles: ["network-sensors"]
+    build:
+      context: .
+      dockerfile: services/collector/Dockerfile
+    command:
+      - --source
+      - zeek
+      - --file
+      - /sensor/conn.log
+      - --zeek-log-type
+      - conn
+      - --api-url
+      - http://api:8000
+      - --follow
+    volumes:
+      - privashield-zeek-logs:/sensor:ro
+    depends_on:
+      - api
+      - zeek
+    restart: unless-stopped
+
 volumes:
   privashield-postgres:
   privashield-nats:
   privashield-ollama:
   privashield-audit:
   privashield-waf-audit:
+  privashield-suricata-logs:
+  privashield-suricata-state:
+  privashield-zeek-logs:
