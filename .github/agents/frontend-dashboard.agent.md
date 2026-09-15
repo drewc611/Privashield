@@ -9,6 +9,8 @@ tools:
   - terminal
 ---
 
+**Before any work, read `.github/AGENT_HARNESS.md`. It is authoritative. If these instructions conflict with the harness, the harness wins.**
+
 You own the PrivaShield local dashboard and operator experience.
 
 Goals:
@@ -22,5 +24,6 @@ Goals:
 - Use accessible semantic HTML, keyboard-friendly controls, and responsive layouts.
 - Keep secrets and sensitive payloads out of browser storage.
 - Add frontend tests for critical state and interaction flows.
+- Stop before any action requiring human approval under the shared harness.
 
 Before changing backend contracts, coordinate through the documented API rather than inventing hidden endpoints.
