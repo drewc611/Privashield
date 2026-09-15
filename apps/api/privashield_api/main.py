@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
 from .ai import OllamaThreatAnalyzer
+from .anomaly import AnomalyEngine
 from .audit import AuditLedger
 from .bus import NatsEventBus, NullEventBus
 from .config import Settings, get_settings
@@ -16,10 +17,14 @@ from .firewall import FirewallController
 from .realtime import EventHub
 from .repository import InMemoryEventRepository, SqlEventRepository
 from .routes.ai import router as ai_router
+from .routes.anomaly import router as anomaly_router
 from .routes.audit import router as audit_router
+from .routes.dlp import router as dlp_router
 from .routes.events import router as events_router
 from .routes.firewall import router as firewall_router
 from .routes.health import router as health_router
+from .routes.malware import router as malware_router
+from .routes.ransomware import router as ransomware_router
 from .routes.realtime import router as realtime_router
 from .routes.sensors import router as sensors_router
 from .sensors import SensorRegistry
@@ -36,6 +41,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.audit_ledger = AuditLedger(resolved_settings.audit_path)
         app.state.sensor_registry = SensorRegistry(resolved_settings.sensor_ttl_seconds)
         app.state.firewall_controller = FirewallController(resolved_settings.enforcement_mode)
+        app.state.anomaly_engine = AnomalyEngine()
         app.state.ai_analyzer = OllamaThreatAnalyzer(
             resolved_settings.ollama_base_url,
             resolved_settings.ollama_model,
@@ -85,6 +91,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sensors_router,
         firewall_router,
         ai_router,
+        dlp_router,
+        anomaly_router,
+        ransomware_router,
+        malware_router,
         audit_router,
         realtime_router,
     ):
