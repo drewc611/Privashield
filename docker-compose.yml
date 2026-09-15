@@ -92,6 +92,20 @@ services:
       - dashboard
     restart: unless-stopped
 
+  file-monitor:
+    profiles: ["host-monitor"]
+    build:
+      context: .
+      dockerfile: services/file-monitor/Dockerfile
+    environment:
+      PRIVASHIELD_API_URL: http://api:8000
+      PRIVASHIELD_WATCH_PATH: /watch
+    volumes:
+      - ${PRIVASHIELD_MONITOR_PATH:-./monitor}:/watch:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   privashield-postgres:
   privashield-nats:
