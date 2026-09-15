@@ -27,7 +27,7 @@ def test_suricata_alert_normalization_is_privacy_minimized() -> None:
     assert event.source == "suricata"
     assert event.severity == "high"
     assert event.summary == "Suspicious outbound TLS pattern"
-    assert event.src_ip == "192.0.2.10"
+    assert str(event.src_ip) == "192.0.2.10"
     assert "tls" not in event.metadata
     assert event.metadata["flow_id"] == 123456
     assert event.metadata["alert"]["signature_id"] == 900001
