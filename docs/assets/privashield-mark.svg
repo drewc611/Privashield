@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="210" viewBox="0 0 180 210" role="img" aria-labelledby="title desc">
+  <title id="title">PrivaShield</title>
+  <desc id="desc">Shield with privacy lock and circuit details.</desc>
+  <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#6366f1"/></linearGradient></defs>
+  <path d="M90 8 160 34v54c0 51-27 89-70 112C47 177 20 139 20 88V34L90 8Z" fill="#0b1220" stroke="url(#g)" stroke-width="8"/>
+  <path d="M90 30 140 49v39c0 37-18 66-50 86-32-20-50-49-50-86V49L90 30Z" fill="none" stroke="#334155" stroke-width="3"/>
+  <rect x="61" y="91" width="58" height="47" rx="9" fill="#111827" stroke="#22d3ee" stroke-width="4"/>
+  <path d="M73 92V78c0-12 7-22 17-22s17 10 17 22v14" fill="none" stroke="#a5b4fc" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="90" cy="112" r="6" fill="#22d3ee"/><path d="M90 118v9" stroke="#22d3ee" stroke-width="5" stroke-linecap="round"/>
+  <path d="M45 66h18l9 9M135 66h-18l-9 9M50 151h21l9-9M130 151h-21l-9-9" fill="none" stroke="#6366f1" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="45" cy="66" r="4" fill="#22d3ee"/><circle cx="135" cy="66" r="4" fill="#22d3ee"/><circle cx="50" cy="151" r="4" fill="#22d3ee"/><circle cx="130" cy="151" r="4" fill="#22d3ee"/>
+</svg>
