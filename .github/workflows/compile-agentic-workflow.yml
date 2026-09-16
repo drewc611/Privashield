@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compile:
@@ -34,17 +34,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: /tmp/gh-aw compile daily-progress --strict
 
-      - name: Commit compiled workflow
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/daily-progress.lock.yml
-          if [ -f .github/aw/actions-lock.json ]; then
-            git add .github/aw/actions-lock.json
-          fi
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "ci: compile daily progress agentic workflow"
-          git push
+      - name: Export compiled workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-daily-progress
+          path: |
+            .github/workflows/daily-progress.lock.yml
+            .github/aw/actions-lock.json
+          if-no-files-found: error
+          retention-days: 1
