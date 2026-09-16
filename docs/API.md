@@ -92,23 +92,36 @@ Returns state, model/provider metadata, prompt-template version, evidence refere
 
 ## Policies
 
-### GET `/policies`
-Returns policy bundles and active revision.
+Signed policy governance is simulation-only. The API stores only an Ed25519 public verification key and cannot sign policy content. Actor strings are not identity-verified until RBAC/identity integration is implemented.
 
-### POST `/policies`
-Creates a draft policy revision.
+### GET `/policies/capabilities`
+Returns whether public-key verification is configured, the configured key ID, the Ed25519 algorithm, mandatory human-approval state, and `privileged_execution=false`.
 
-### GET `/policies/{policy_id}`
-Returns policy content, mode, version, author, validation state, and activation history.
+### POST `/policies/revisions`
+Registers an already signed policy revision after Ed25519 verification. Revisions are immutable signed documents with monotonically increasing versions.
 
-### PATCH `/policies/{policy_id}`
-Updates a draft policy. Activated revisions are immutable.
+### GET `/policies/{policy_id}/revisions`
+Lists stored revisions newest first.
 
-### POST `/policies/{policy_id}/validate`
-Runs static validation and capability checks.
+### GET `/policies/{policy_id}/revisions/{version}`
+Returns one stored revision including digest, signature metadata, lifecycle state, and non-enforcement state.
 
-### POST `/policies/{policy_id}/activate`
-Activates a validated revision subject to authorization. Phase 1 policies may produce only observe/alert outcomes.
+### POST `/policies/{policy_id}/revisions/{version}/approve`
+Approves a draft revision. The approving actor string must differ from the actor string that registered the revision. Signature and digest are re-verified before approval.
+
+### POST `/policies/{policy_id}/revisions/{version}/activate`
+Activates an approved revision for simulation governance only. Signature and digest are re-verified. Activation does not create or execute a response action.
+
+### GET `/policies/{policy_id}/active`
+Returns the currently active simulation-governance revision, if any.
+
+### GET `/policies/{policy_id}/history`
+Returns append-only registration, approval, activation, supersession, and rollback history.
+
+### POST `/policies/{policy_id}/rollback`
+Selects a previously approved older revision, re-verifies its signature/digest, and makes it active for simulation governance. This is policy revision rollback, not privileged-enforcement rollback qualification.
+
+See `docs/POLICY_GOVERNANCE.md` for the complete signing, key-management, lifecycle, and safety model.
 
 ## Sources
 
