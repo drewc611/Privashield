@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import Any
-
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .auth import AuthorizationError
 
@@ -33,17 +30,19 @@ def _bearer_token(scope: Scope) -> str | None:
     return None
 
 
-async def _http_error(send: Send, status_code: int, detail: str) -> None:
+async def _http_error(
+    scope: Scope,
+    receive: Receive,
+    send: Send,
+    status_code: int,
+    detail: str,
+) -> None:
     response = JSONResponse(
         status_code=status_code,
         content={"detail": detail},
         headers={"WWW-Authenticate": "Bearer"} if status_code == 401 else None,
     )
-    await response({}, _empty_receive, send)
-
-
-async def _empty_receive() -> Message:
-    return {"type": "http.request", "body": b"", "more_body": False}
+    await response(scope, receive, send)
 
 
 class AuthMiddleware:
@@ -77,9 +76,15 @@ class AuthMiddleware:
 
         if principal is None:
             if scope["type"] == "websocket":
-                await send({"type": "websocket.close", "code": 4401, "reason": "authentication required"})
+                await send(
+                    {
+                        "type": "websocket.close",
+                        "code": 4401,
+                        "reason": "authentication required",
+                    }
+                )
             else:
-                await _http_error(send, 401, "authentication required")
+                await _http_error(scope, receive, send, 401, "authentication required")
             return
 
         try:
@@ -88,7 +93,7 @@ class AuthMiddleware:
             if scope["type"] == "websocket":
                 await send({"type": "websocket.close", "code": 4403, "reason": "forbidden"})
             else:
-                await _http_error(send, 403, str(exc))
+                await _http_error(scope, receive, send, 403, str(exc))
             return
 
         scope.setdefault("state", {})["principal"] = principal
