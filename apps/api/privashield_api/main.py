@@ -10,7 +10,7 @@ from . import __version__
 from .ai import OllamaThreatAnalyzer
 from .anomaly import AnomalyEngine
 from .audit import AuditLedger
-from .auth import AuthService, AuthorizationPolicy
+from .auth import AuthorizationPolicy, AuthService
 from .auth_middleware import AuthMiddleware
 from .auth_models import AuthMode
 from .auth_repository import InMemoryPrincipalRepository, SqlPrincipalRepository
