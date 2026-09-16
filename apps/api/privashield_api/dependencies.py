@@ -4,6 +4,7 @@ from .ai import OllamaThreatAnalyzer
 from .anomaly import AnomalyEngine
 from .audit import AuditLedger
 from .bus import EventBus
+from .feedback_repository import FeedbackRepository
 from .firewall import FirewallController
 from .realtime import EventHub
 from .repository import EventRepository
@@ -13,6 +14,10 @@ from .sensors import SensorRegistry
 
 def get_event_repository(request: Request) -> EventRepository:
     return request.app.state.event_repository
+
+
+def get_feedback_repository(request: Request) -> FeedbackRepository:
+    return request.app.state.feedback_repository
 
 
 def get_event_hub(request: Request) -> EventHub:
