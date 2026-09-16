@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from .policy_models import (
     PolicyCapabilities,
     PolicyHistoryEvent,
@@ -40,33 +42,34 @@ class PolicyService:
         self,
         repository: PolicyRepository,
         *,
-        signing_key: bytes | None,
+        verification_key: Ed25519PublicKey | None,
         key_id: str,
     ) -> None:
         self._repository = repository
-        self._signing_key = signing_key
+        self._verification_key = verification_key
         self._key_id = key_id
 
     def capabilities(self) -> PolicyCapabilities:
         return PolicyCapabilities(
-            signing_configured=bool(self._signing_key),
+            verification_configured=self._verification_key is not None,
             configured_key_id=self._key_id,
         )
 
-    def _require_signing_key(self) -> bytes:
-        if not self._signing_key:
+    def _require_verification_key(self) -> Ed25519PublicKey:
+        if self._verification_key is None:
             raise PolicyConfigurationError(
-                "policy signing is not configured; set PRIVASHIELD_POLICY_SIGNING_KEY"
+                "policy verification is not configured; set "
+                "PRIVASHIELD_POLICY_VERIFICATION_PUBLIC_KEY"
             )
-        return self._signing_key
+        return self._verification_key
 
     def _verify_envelope(self, envelope: SignedPolicyEnvelope) -> None:
-        signing_key = self._require_signing_key()
+        verification_key = self._require_verification_key()
         if envelope.key_id != self._key_id:
             raise PolicySignatureError(
                 f"policy key_id {envelope.key_id!r} does not match configured key_id"
             )
-        if not verify_policy(envelope, signing_key):
+        if not verify_policy(envelope, verification_key):
             raise PolicySignatureError("policy signature verification failed")
 
     def _verify_revision(self, revision: PolicyRevision) -> None:
