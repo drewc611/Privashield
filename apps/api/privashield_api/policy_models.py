@@ -48,8 +48,8 @@ class SignedPolicyEnvelope(BaseModel):
     version: int = Field(ge=1)
     document: PolicyDocument
     key_id: str = Field(min_length=1, max_length=128)
-    algorithm: Literal["hmac-sha256"] = "hmac-sha256"
-    signature: str = Field(pattern=r"^[0-9a-f]{64}$")
+    algorithm: Literal["ed25519"] = "ed25519"
+    signature: str = Field(pattern=r"^[0-9a-f]{128}$")
 
 
 class PolicyRegisterRequest(BaseModel):
@@ -75,8 +75,8 @@ class PolicyRevision(BaseModel):
     version: int
     document: PolicyDocument
     key_id: str
-    algorithm: Literal["hmac-sha256"] = "hmac-sha256"
-    signature: str
+    algorithm: Literal["ed25519"] = "ed25519"
+    signature: str = Field(pattern=r"^[0-9a-f]{128}$")
     content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     status: PolicyStatus = PolicyStatus.DRAFT
     created_by: str
@@ -106,8 +106,8 @@ class PolicyHistoryEvent(BaseModel):
 
 
 class PolicyCapabilities(BaseModel):
-    signing_configured: bool
-    signing_algorithm: Literal["hmac-sha256"] = "hmac-sha256"
+    verification_configured: bool
+    signing_algorithm: Literal["ed25519"] = "ed25519"
     configured_key_id: str
     require_human_approval: Literal[True] = True
     privileged_execution: Literal[False] = False
