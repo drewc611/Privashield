@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
 from privashield_api.config import Settings
 from privashield_api.main import create_app
 from privashield_api.policy_models import PolicyDocument
-from privashield_api.policy_signing import sign_policy, verify_policy
+from privashield_api.policy_signing import encode_public_key, sign_policy, verify_policy
 from privashield_api.response_models import ResponseActionType
 
-SIGNING_KEY = b"test-only-policy-signing-key-with-sufficient-entropy"
+PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+PUBLIC_KEY = PRIVATE_KEY.public_key()
+PUBLIC_KEY_B64 = encode_public_key(PUBLIC_KEY)
 KEY_ID = "test-key-v1"
 
 
@@ -23,8 +26,8 @@ def client(*, configured: bool = True) -> TestClient:
                 ollama_enabled=False,
                 audit_path=None,
                 environment="test",
-                policy_signing_key=SIGNING_KEY.decode() if configured else None,
-                policy_signing_key_id=KEY_ID,
+                policy_verification_public_key=PUBLIC_KEY_B64 if configured else None,
+                policy_verification_key_id=KEY_ID,
             )
         )
     )
@@ -42,13 +45,19 @@ def document(name: str = "Default response simulation policy") -> PolicyDocument
     )
 
 
-def signed(policy_id: UUID, version: int, *, name: str | None = None, key_id: str = KEY_ID):
+def signed(
+    policy_id: UUID,
+    version: int,
+    *,
+    name: str | None = None,
+    key_id: str = KEY_ID,
+):
     return sign_policy(
         policy_id=policy_id,
         version=version,
         document=document(name or f"Policy revision {version}"),
         key_id=key_id,
-        signing_key=SIGNING_KEY,
+        private_key=PRIVATE_KEY,
     )
 
 
@@ -68,19 +77,20 @@ def test_policy_signature_is_deterministic_and_tamper_evident() -> None:
     second = signed(policy_id, 1)
 
     assert first.signature == second.signature
-    assert verify_policy(first, SIGNING_KEY) is True
+    assert verify_policy(first, PUBLIC_KEY) is True
 
     tampered = first.model_copy(deep=True)
     tampered.document.name = "Tampered policy"
-    assert verify_policy(tampered, SIGNING_KEY) is False
+    assert verify_policy(tampered, PUBLIC_KEY) is False
 
 
-def test_policy_capabilities_fail_closed_without_signing_key() -> None:
+def test_policy_capabilities_fail_closed_without_verification_key() -> None:
     with client(configured=False) as api:
         capabilities = api.get("/api/v1/policies/capabilities")
         assert capabilities.status_code == 200
         body = capabilities.json()
-        assert body["signing_configured"] is False
+        assert body["verification_configured"] is False
+        assert body["signing_algorithm"] == "ed25519"
         assert body["require_human_approval"] is True
         assert body["privileged_execution"] is False
         assert body["activation_effect"] == "simulation-governance-only"
@@ -88,7 +98,7 @@ def test_policy_capabilities_fail_closed_without_signing_key() -> None:
         policy_id = uuid4()
         response = register(api, signed(policy_id, 1))
         assert response.status_code == 503
-        assert "signing is not configured" in response.json()["detail"]
+        assert "verification is not configured" in response.json()["detail"]
 
 
 def test_policy_rejects_tampering_key_mismatch_and_non_monotonic_versions() -> None:
@@ -161,7 +171,6 @@ def test_policy_requires_second_operator_and_approval_before_activation() -> Non
         assert active["enforced"] is False
         assert active["document"]["privileged_execution"] is False
 
-        # Policy activation governs simulation only; it cannot create or execute response actions.
         response_actions = api.get("/api/v1/response/actions")
         assert response_actions.status_code == 200
         assert response_actions.json() == []
@@ -186,7 +195,12 @@ def test_policy_version_history_supersession_and_rollback() -> None:
             == 200
         )
 
-        assert register(api, signed(policy_id, 2), created_by="author-two@example.test").status_code == 201
+        v2 = register(
+            api,
+            signed(policy_id, 2),
+            created_by="author-two@example.test",
+        )
+        assert v2.status_code == 201
         assert (
             api.post(
                 f"/api/v1/policies/{policy_id}/revisions/2/approve",
@@ -237,7 +251,7 @@ def test_policy_version_history_supersession_and_rollback() -> None:
         assert all(item["policy_id"] == str(policy_id) for item in history.json())
 
 
-def test_rollback_cannot_select_unapproved_or_forward_revision() -> None:
+def test_rollback_cannot_select_forward_revision() -> None:
     policy_id = uuid4()
     with client() as api:
         assert register(api, signed(policy_id, 1)).status_code == 201
@@ -255,7 +269,12 @@ def test_rollback_cannot_select_unapproved_or_forward_revision() -> None:
             ).status_code
             == 200
         )
-        assert register(api, signed(policy_id, 2), created_by="author-two@example.test").status_code == 201
+        v2 = register(
+            api,
+            signed(policy_id, 2),
+            created_by="author-two@example.test",
+        )
+        assert v2.status_code == 201
 
         response = api.post(
             f"/api/v1/policies/{policy_id}/rollback",
