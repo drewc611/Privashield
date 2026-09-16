@@ -23,7 +23,7 @@ permissions:
 
 tools:
   github:
-    toolsets: [all]
+    toolsets: [default, actions, code_security]
   bash: true
   cache-memory: true
 
