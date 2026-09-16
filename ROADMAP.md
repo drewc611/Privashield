@@ -66,7 +66,7 @@ A checked item means the capability exists in the repository. It does **not** im
 - [x] Dependabot configuration
 - [x] Shared AI-agent safety harness
 - [x] Specialized project agents
-- [ ] SBOM generation in CI
+- [x] SBOM generation in CI
 - [ ] Build provenance / artifact attestation
 - [ ] Signed release artifacts
 - [ ] Automated secret-scanning policy validation
