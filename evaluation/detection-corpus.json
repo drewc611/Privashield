@@ -1,0 +1,294 @@
+{
+  "schema_version": "1.0",
+  "description": "Versioned PrivaShield deterministic regression corpus. This corpus validates expected rule behavior and is not an effectiveness or zero-day detection benchmark.",
+  "dlp": [
+    {
+      "id": "dlp-public-text",
+      "request": {
+        "text": "The engineering roadmap review is scheduled for Thursday.",
+        "permission_tier": "internal"
+      },
+      "expect": {
+        "sensitivity": "public",
+        "labels_contains": []
+      }
+    },
+    {
+      "id": "dlp-email",
+      "request": {
+        "text": "Contact analyst@example.com for the internal review.",
+        "permission_tier": "internal"
+      },
+      "expect": {
+        "sensitivity": "confidential",
+        "labels_contains": ["email"]
+      }
+    },
+    {
+      "id": "dlp-restricted-identifiers",
+      "request": {
+        "text": "SSN 123-45-6789 and card 4111 1111 1111 1111 must not leave the enclave.",
+        "permission_tier": "internal"
+      },
+      "expect": {
+        "sensitivity": "restricted",
+        "labels_contains": ["ssn", "payment_card"],
+        "redacted_absent": ["123-45-6789", "4111 1111 1111 1111"]
+      }
+    },
+    {
+      "id": "dlp-medical-record",
+      "request": {
+        "text": "MRN: AB123456 was referenced in the case notes.",
+        "permission_tier": "public"
+      },
+      "expect": {
+        "sensitivity": "restricted",
+        "labels_contains": ["medical_record"]
+      }
+    }
+  ],
+  "malware": [
+    {
+      "id": "malware-benign-text",
+      "request": {
+        "filename": "notes.txt",
+        "size_bytes": 2048,
+        "entropy": 4.1,
+        "known_signature_match": false
+      },
+      "expect": {
+        "classification": "low-risk",
+        "max_score": 0.1
+      }
+    },
+    {
+      "id": "malware-disguised-executable",
+      "request": {
+        "filename": "invoice.pdf.exe",
+        "size_bytes": 500000,
+        "entropy": 7.9,
+        "known_signature_match": false
+      },
+      "expect": {
+        "classification": "high-risk",
+        "min_score": 0.75
+      }
+    },
+    {
+      "id": "malware-local-signature",
+      "request": {
+        "filename": "payload.bin",
+        "size_bytes": 8192,
+        "entropy": 5.5,
+        "known_signature_match": true
+      },
+      "expect": {
+        "classification": "high-risk",
+        "min_score": 0.9
+      }
+    }
+  ],
+  "ransomware": [
+    {
+      "id": "ransomware-idle",
+      "request": {
+        "window_seconds": 60,
+        "file_operations": 0,
+        "renamed_files": 0,
+        "extension_changes": 0,
+        "high_entropy_writes": 0,
+        "distinct_directories": 0
+      },
+      "expect": {
+        "severity_in": ["info"],
+        "max_score": 0.01
+      }
+    },
+    {
+      "id": "ransomware-mass-encryption",
+      "request": {
+        "window_seconds": 10,
+        "file_operations": 500,
+        "renamed_files": 250,
+        "extension_changes": 200,
+        "high_entropy_writes": 220,
+        "distinct_directories": 30
+      },
+      "expect": {
+        "severity_in": ["high", "critical"],
+        "min_score": 0.65
+      }
+    },
+    {
+      "id": "ransomware-extreme-encryption",
+      "request": {
+        "window_seconds": 10,
+        "file_operations": 1000,
+        "renamed_files": 800,
+        "extension_changes": 800,
+        "high_entropy_writes": 900,
+        "distinct_directories": 50
+      },
+      "expect": {
+        "severity_in": ["critical"],
+        "min_score": 0.85
+      }
+    }
+  ],
+  "anomaly_sequences": [
+    {
+      "id": "anomaly-normal-login",
+      "observations": [
+        {
+          "user_id": "normal@example.com",
+          "timestamp": "2026-01-01T12:00:00Z",
+          "event_type": "login",
+          "latitude": 32.7765,
+          "longitude": -79.9311,
+          "downloaded_bytes": 0
+        },
+        {
+          "user_id": "normal@example.com",
+          "timestamp": "2026-01-01T13:00:00Z",
+          "event_type": "login",
+          "latitude": 32.7765,
+          "longitude": -79.9311,
+          "downloaded_bytes": 0
+        }
+      ],
+      "expect": {
+        "severity_in": ["info"],
+        "max_score": 0.1
+      }
+    },
+    {
+      "id": "anomaly-impossible-travel",
+      "observations": [
+        {
+          "user_id": "traveler@example.com",
+          "timestamp": "2026-01-01T12:00:00Z",
+          "event_type": "login",
+          "latitude": 40.7128,
+          "longitude": -74.0060,
+          "downloaded_bytes": 0
+        },
+        {
+          "user_id": "traveler@example.com",
+          "timestamp": "2026-01-01T13:00:00Z",
+          "event_type": "login",
+          "latitude": 51.5072,
+          "longitude": -0.1276,
+          "downloaded_bytes": 0
+        }
+      ],
+      "expect": {
+        "severity_in": ["high", "critical"],
+        "min_score": 0.65
+      }
+    },
+    {
+      "id": "anomaly-rapid-download",
+      "observations": [
+        {
+          "user_id": "downloader@example.com",
+          "timestamp": "2026-01-01T12:00:00Z",
+          "event_type": "download",
+          "downloaded_bytes": 1288490188
+        }
+      ],
+      "expect": {
+        "severity_in": ["critical"],
+        "min_score": 0.85
+      }
+    }
+  ],
+  "correlation": [
+    {
+      "id": "correlation-shared-asset-cross-source",
+      "max_time_gap_seconds": 300,
+      "events": [
+        {
+          "id": "00000000-0000-0000-0000-000000000101",
+          "timestamp": "2026-01-01T12:00:00Z",
+          "source": "suricata",
+          "event_type": "alert",
+          "severity": "high",
+          "asset_id": "10000000-0000-0000-0000-000000000001",
+          "src_ip": "10.0.0.25",
+          "dst_ip": "198.51.100.20",
+          "summary": "IDS signal"
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000102",
+          "timestamp": "2026-01-01T12:01:00Z",
+          "source": "host",
+          "event_type": "filesystem.risk",
+          "severity": "medium",
+          "asset_id": "10000000-0000-0000-0000-000000000001",
+          "src_ip": "10.0.0.25",
+          "summary": "Host signal"
+        }
+      ],
+      "expect": {
+        "incident_count": 1,
+        "min_source_count": 2,
+        "indicator_types_contains": ["asset_id", "ip"]
+      }
+    },
+    {
+      "id": "correlation-same-source-excluded",
+      "max_time_gap_seconds": 300,
+      "events": [
+        {
+          "id": "00000000-0000-0000-0000-000000000201",
+          "timestamp": "2026-01-01T12:00:00Z",
+          "source": "suricata",
+          "event_type": "alert-a",
+          "severity": "medium",
+          "asset_id": "20000000-0000-0000-0000-000000000001",
+          "summary": "First IDS signal"
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000202",
+          "timestamp": "2026-01-01T12:01:00Z",
+          "source": "suricata",
+          "event_type": "alert-b",
+          "severity": "medium",
+          "asset_id": "20000000-0000-0000-0000-000000000001",
+          "summary": "Second IDS signal"
+        }
+      ],
+      "expect": {
+        "incident_count": 0
+      }
+    },
+    {
+      "id": "correlation-time-window-excluded",
+      "max_time_gap_seconds": 60,
+      "events": [
+        {
+          "id": "00000000-0000-0000-0000-000000000301",
+          "timestamp": "2026-01-01T12:00:00Z",
+          "source": "identity",
+          "event_type": "login",
+          "severity": "medium",
+          "user_id": "user@example.com",
+          "summary": "Identity signal"
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000302",
+          "timestamp": "2026-01-01T12:10:00Z",
+          "source": "waf",
+          "event_type": "request",
+          "severity": "medium",
+          "user_id": "user@example.com",
+          "summary": "WAF signal"
+        }
+      ],
+      "expect": {
+        "incident_count": 0
+      }
+    }
+  ]
+}
