@@ -4,10 +4,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, Integer, String, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Uuid
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from .feedback_models import AnalystFeedback
 from .schemas import SecurityEvent
 
 
@@ -90,6 +91,50 @@ class SecurityEventRecord(Base):
             raw_ref=self.raw_ref,
             metadata=self.metadata_json or {},
             correlation_id=self.correlation_id,
+            schema_version=self.schema_version,
+        )
+
+
+class AnalystFeedbackRecord(Base):
+    __tablename__ = "analyst_feedback"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    target_type: Mapped[str] = mapped_column(String(32), index=True)
+    target_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), index=True)
+    label: Mapped[str] = mapped_column(String(32), index=True)
+    detector: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    note: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    tags_json: Mapped[list[str]] = mapped_column("tags", JSON, default=list)
+    identity_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    schema_version: Mapped[str] = mapped_column(String(16), default="1.0")
+
+    @classmethod
+    def from_feedback(cls, feedback: AnalystFeedback) -> AnalystFeedbackRecord:
+        return cls(
+            id=feedback.id,
+            created_at=feedback.created_at,
+            target_type=feedback.target_type.value,
+            target_id=feedback.target_id,
+            label=feedback.label.value,
+            detector=feedback.detector,
+            note=feedback.note,
+            tags_json=feedback.tags,
+            identity_verified=feedback.identity_verified,
+            schema_version=feedback.schema_version,
+        )
+
+    def to_feedback(self) -> AnalystFeedback:
+        return AnalystFeedback(
+            id=self.id,
+            created_at=self.created_at,
+            target_type=self.target_type,
+            target_id=self.target_id,
+            label=self.label,
+            detector=self.detector,
+            note=self.note,
+            tags=self.tags_json or [],
+            identity_verified=self.identity_verified,
             schema_version=self.schema_version,
         )
 
