@@ -33,8 +33,14 @@
         <div>
           <p class="eyebrow">PRIVACY-FIRST THREAT DEFENSE</p>
           <h1>Threat Shield</h1>
+          <div class="auth-state"><span id="authIdentity">AUTH CHECKING</span></div>
         </div>
         <div class="header-actions">
+          <div class="auth-controls">
+            <input id="authToken" type="password" autocomplete="off" spellcheck="false" placeholder="Local bearer token">
+            <button class="button secondary" id="saveAuthToken">Use token</button>
+            <button class="button secondary" id="clearAuthToken">Clear</button>
+          </div>
           <span class="pill" id="systemMode">OBSERVE</span>
           <button class="button secondary" id="refreshButton">Refresh</button>
         </div>
