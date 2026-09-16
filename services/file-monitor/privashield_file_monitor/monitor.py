@@ -70,12 +70,13 @@ def summarize_changes(changes: set[tuple[Change, str]]) -> dict[str, int]:
 
 
 class FileMonitor:
-    def __init__(self, api_url: str, watch_path: Path) -> None:
+    def __init__(self, api_url: str, watch_path: Path, *, api_token: str | None = None) -> None:
         self.api_url = api_url.rstrip("/")
         self.watch_path = watch_path
         self.hostname = socket.gethostname()
         self.sensor_id = uuid5(NAMESPACE_DNS, f"privashield:{self.hostname}:file-monitor")
-        self.client = httpx.Client(timeout=15)
+        headers = {"Authorization": f"Bearer {api_token}"} if api_token else None
+        self.client = httpx.Client(timeout=15, headers=headers)
         self.last_heartbeat = 0.0
 
     def heartbeat(self) -> None:
@@ -181,10 +182,11 @@ class FileMonitor:
 
 def main() -> int:
     api_url = os.environ.get("PRIVASHIELD_API_URL", "http://api:8000")
+    api_token = os.environ.get("PRIVASHIELD_API_TOKEN") or None
     watch_path = Path(os.environ.get("PRIVASHIELD_WATCH_PATH", "/watch"))
     if not watch_path.exists() or not watch_path.is_dir():
         raise SystemExit(f"Monitored path is not a directory: {watch_path}")
-    FileMonitor(api_url, watch_path).run()
+    FileMonitor(api_url, watch_path, api_token=api_token).run()
     return 0
 
 
