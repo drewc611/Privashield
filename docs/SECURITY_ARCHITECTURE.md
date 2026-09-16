@@ -17,21 +17,38 @@ Future firewall/eBPF/nftables adapters run as a separate service with the smalle
 
 ## Authorization model
 
-Planned roles:
+PrivaShield implements five server-side local RBAC roles:
 
-- viewer: read non-sensitive operational state
-- analyst: investigate alerts and request AI analysis
-- operator: modify approved operational policy and execute bounded actions
-- administrator: manage system configuration, identities, and high-impact settings
-- auditor: inspect audit state and exported evidence without operational mutation authority
+- viewer: read ordinary operational state and telemetry
+- analyst: investigate alerts, run analysis, and submit analyst feedback
+- operator: perform bounded control-plane mutations, sensor ingestion, simulation workflows, and signed-policy lifecycle operations
+- administrator: manage local principals plus all operator functions and audit access
+- auditor: inspect audit state, policy history, and operational evidence without mutation authority
 
-Every sensitive endpoint must enforce authorization server-side. UI hiding is not authorization.
+Authorization is enforced by API middleware for HTTP and WebSocket routes. UI hiding is not authorization.
+
+The centralized role policy is fail-closed for authenticated mode: unknown protected API routes require at least read authority, and unknown mutations require operator authority.
 
 ## Authentication
 
-Phase 1 development may support loopback-only bootstrap access. Remote exposure requires authentication before the project can call that configuration supported.
+Two modes exist:
 
-Future authentication should support local credentials with strong password hashing and external OIDC where appropriate. Session cookies should be Secure/HttpOnly/SameSite when browser sessions are used.
+- `disabled`: loopback-oriented development compatibility; actions are explicitly unverified
+- `local`: high-entropy bearer authentication with persistent local principals and server-side RBAC
+
+Local bearer tokens are generated from cryptographically secure randomness. Only SHA-256 token digests and short display prefixes are persisted. Raw tokens are returned once at creation or rotation and must be stored by the operator.
+
+A separately configured bootstrap administrator token can create initial durable administrators. It should be removed after durable administrator credentials are verified. Durable administrators cannot disable their own active principal, and when no bootstrap token exists the last enabled durable administrator cannot be disabled.
+
+Browser WebSocket authentication uses a bearer credential in the `Sec-WebSocket-Protocol` request header and selects only the safe `privashield` subprotocol in the response. Tokens are not placed in WebSocket query strings. Proxy/access logging must redact both authorization and WebSocket protocol headers.
+
+External OIDC/SAML integration is not implemented yet. See `docs/AUTHENTICATION.md`.
+
+## Verified audit attribution
+
+When local authentication is enabled, human actor identity comes from the authenticated principal, not a caller-supplied request field. Audit actor strings include the durable principal UUID. Policy lifecycle history also records whether the actor credential was verified.
+
+Legacy `disabled` mode remains explicitly unverified and exists only for local development compatibility.
 
 ## Secrets
 
@@ -39,11 +56,14 @@ Future authentication should support local credentials with strong password hash
 - Prefer Docker secrets, mounted files, OS key stores, or dedicated secret managers over plaintext environment variables for hardened deployments.
 - Secrets are write-only through management interfaces and never returned through normal GET endpoints.
 - Logs must redact known secret fields.
+- Never log bearer tokens, bootstrap tokens, `Authorization`, or credential-bearing WebSocket protocol headers.
 - Rotate credentials after suspected disclosure.
 
 ## Network exposure
 
-Default Compose bindings should remain on localhost unless the deployment documentation explicitly requires otherwise. PostgreSQL, Redis, model runtime, and privileged adapters should not be exposed to untrusted networks.
+Default Compose bindings should remain on localhost unless the deployment documentation explicitly requires otherwise. PostgreSQL, NATS, model runtime, and future privileged adapters should not be exposed to untrusted networks.
+
+Local RBAC is required before PrivaShield should be intentionally exposed beyond loopback. Authentication does not replace TLS or network segmentation.
 
 ## TLS
 
@@ -65,11 +85,13 @@ All external data is hostile:
 ## Policy safety
 
 - Policies are versioned.
+- Policy envelopes are authenticated with Ed25519 signatures.
+- The running API stores only the policy verification public key, not the offline private signing key.
 - Active revisions are immutable.
-- Enforcement-capable policies must define default/fallback behavior.
-- High-impact actions may require approval based on deployment mode.
-- New policy activation creates an audit record.
-- Rollback targets a known previous revision, not reconstructed state.
+- Policy approval requires a second operator identity.
+- New policy activation creates audit and policy-history records.
+- Rollback targets a known previously approved revision, not reconstructed state.
+- Current activation is simulation-governance-only and cannot enable privileged execution.
 
 ## Kill switch
 
@@ -83,9 +105,11 @@ Because "kill switch" can mean opposite things, implementations must expose sepa
 
 The UI must not collapse these into an ambiguous single action.
 
+No privileged kill switch is implemented in the current release line because privileged enforcement remains gated.
+
 ## Cryptography
 
-Initial audit chaining uses SHA-256 over canonical records plus the previous record hash. Cryptographic algorithms and serialization formats are versioned. Future releases may add signed checkpoints using a protected signing key.
+Audit chaining uses SHA-256 over canonical records plus the previous record hash. Signed policy governance uses Ed25519 over canonicalized policy envelopes with SHA-256 content digests. Cryptographic algorithms and serialization formats are versioned.
 
 Cryptography is not used to conceal architectural weaknesses. Standard libraries and well-reviewed primitives are required.
 
@@ -98,29 +122,30 @@ Operational logs may rotate and be redacted. Audit records are append-only domai
 Never log:
 
 - passwords
-- API tokens
+- bearer/API tokens
+- bootstrap tokens
 - private keys
 - full authorization headers
+- credential-bearing WebSocket protocol headers
 - arbitrary raw packet payloads
 - full model prompts containing sensitive evidence by default
 
 ## Secure failure behavior
 
-Every enforcement adapter documents whether it fails open, fails closed, or preserves current state for each failure category. There is no universal default because a fail-closed network control can itself cause a severe outage.
+Authentication in `local` mode fails closed: missing, invalid, rotated, or disabled bearer credentials receive 401, and authenticated principals without the required role receive 403.
+
+Every future enforcement adapter must separately document whether it fails open, fails closed, or preserves current state for each failure category. There is no universal enforcement default because a fail-closed network control can itself cause a severe outage.
 
 ## Hardening before production-ready status
 
-A production-ready label requires at least:
+Implemented foundations now include an authenticated local control plane, server-side RBAC, signed/versioned policy, security scanning, and verified local audit attribution. A production-ready label still requires at least:
 
-- authenticated control plane
-- server-side RBAC
-- secure secret handling
-- protected network bindings
-- signed/versioned policy
-- security scanning in CI
+- hardened secret delivery rather than plaintext environment values
+- protected network bindings and TLS for remote deployments
+- external identity integration where organizational policy requires it
 - SBOM and artifact integrity
 - tested backup/restore
-- tested enforcement rollback
+- tested enforcement rollback before any privileged enforcement exists
 - parser fuzzing or equivalent negative testing
 - documented incident-response process
 - no unresolved critical/high vulnerabilities affecting the release
