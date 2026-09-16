@@ -1,0 +1,445 @@
+{
+  "schema_version": "1.0",
+  "corpus_version": "2026.09.1",
+  "description": "Deterministic regression corpus for PrivaShield detection and correlation behavior.",
+  "thresholds": {
+    "overall_min_pass_rate": 1.0,
+    "engine_min_pass_rate": {
+      "dlp": 1.0,
+      "anomaly": 1.0,
+      "ransomware": 1.0,
+      "file_risk": 1.0,
+      "correlation": 1.0
+    }
+  },
+  "cases": [
+    {
+      "id": "dlp-benign-text",
+      "engine": "dlp",
+      "input": {
+        "text": "Quarterly planning starts Tuesday at 09:00.",
+        "permission_tier": "internal"
+      },
+      "expected": {
+        "sensitivity": "public",
+        "labels": [],
+        "redacted": false
+      }
+    },
+    {
+      "id": "dlp-email-public-view",
+      "engine": "dlp",
+      "input": {
+        "text": "Contact analyst@example.com for access.",
+        "permission_tier": "public"
+      },
+      "expected": {
+        "sensitivity": "confidential",
+        "labels": ["email"],
+        "redacted": true,
+        "redaction_markers": ["[REDACTED:EMAIL]"]
+      }
+    },
+    {
+      "id": "dlp-restricted-identifiers",
+      "engine": "dlp",
+      "input": {
+        "text": "SSN 123-45-6789 and card 4111 1111 1111 1111.",
+        "permission_tier": "internal"
+      },
+      "expected": {
+        "sensitivity": "restricted",
+        "labels": ["payment_card", "ssn"],
+        "redacted": true,
+        "redaction_markers": ["[REDACTED:SSN]", "[REDACTED:PAYMENT_CARD]"]
+      }
+    },
+    {
+      "id": "dlp-privileged-view-preserves-text",
+      "engine": "dlp",
+      "input": {
+        "text": "api_key=abcdef1234567890",
+        "permission_tier": "privileged"
+      },
+      "expected": {
+        "sensitivity": "restricted",
+        "labels": ["credential"],
+        "redacted": false
+      }
+    },
+    {
+      "id": "dlp-invalid-card-not-classified",
+      "engine": "dlp",
+      "input": {
+        "text": "Reference number 4111 1111 1111 1112 is not a valid payment card.",
+        "permission_tier": "internal"
+      },
+      "expected": {
+        "sensitivity": "public",
+        "labels": [],
+        "redacted": false
+      }
+    },
+    {
+      "id": "anomaly-baseline-login",
+      "engine": "anomaly",
+      "input": {
+        "observations": [
+          {
+            "user_id": "user-a@example.com",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "event_type": "login",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "downloaded_bytes": 0
+          }
+        ]
+      },
+      "expected": {
+        "severity": "info",
+        "risk_score": 0.0
+      }
+    },
+    {
+      "id": "anomaly-impossible-travel",
+      "engine": "anomaly",
+      "input": {
+        "observations": [
+          {
+            "user_id": "user-b@example.com",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "event_type": "login",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "downloaded_bytes": 0
+          },
+          {
+            "user_id": "user-b@example.com",
+            "timestamp": "2026-09-15T13:00:00Z",
+            "event_type": "login",
+            "latitude": 51.5072,
+            "longitude": -0.1276,
+            "downloaded_bytes": 0
+          }
+        ]
+      },
+      "expected": {
+        "severity": "high",
+        "risk_score": 0.75,
+        "reason_contains": ["Impossible travel"]
+      }
+    },
+    {
+      "id": "anomaly-single-large-download",
+      "engine": "anomaly",
+      "input": {
+        "observations": [
+          {
+            "user_id": "user-c@example.com",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "event_type": "download",
+            "downloaded_bytes": 629145600
+          }
+        ]
+      },
+      "expected": {
+        "severity": "medium",
+        "risk_score": 0.45,
+        "reason_contains": ["Single download exceeded 500 MiB"]
+      }
+    },
+    {
+      "id": "anomaly-ten-minute-download-burst",
+      "engine": "anomaly",
+      "input": {
+        "observations": [
+          {
+            "user_id": "user-d@example.com",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "event_type": "download",
+            "downloaded_bytes": 629145600
+          },
+          {
+            "user_id": "user-d@example.com",
+            "timestamp": "2026-09-15T12:01:00Z",
+            "event_type": "download",
+            "downloaded_bytes": 629145600
+          }
+        ]
+      },
+      "expected": {
+        "severity": "critical",
+        "risk_score": 0.9,
+        "reason_contains": [
+          "Single download exceeded 500 MiB",
+          "Ten-minute download volume exceeded 1 GiB"
+        ]
+      }
+    },
+    {
+      "id": "ransomware-idle-baseline",
+      "engine": "ransomware",
+      "input": {
+        "window_seconds": 60,
+        "file_operations": 0,
+        "renamed_files": 0,
+        "extension_changes": 0,
+        "high_entropy_writes": 0,
+        "distinct_directories": 1
+      },
+      "expected": {
+        "severity": "info",
+        "risk_score": 0.0,
+        "enforced": false
+      }
+    },
+    {
+      "id": "ransomware-mass-encryption-pattern",
+      "engine": "ransomware",
+      "input": {
+        "window_seconds": 10,
+        "file_operations": 500,
+        "renamed_files": 250,
+        "extension_changes": 200,
+        "high_entropy_writes": 220,
+        "distinct_directories": 30
+      },
+      "expected": {
+        "severity": "high",
+        "risk_score": 0.76,
+        "enforced": false,
+        "reason_contains": [
+          "High file-operation rate",
+          "Burst of file renames detected",
+          "Unusual file-extension changes detected",
+          "High-entropy write burst",
+          "Activity spans many directories"
+        ]
+      }
+    },
+    {
+      "id": "ransomware-rename-only-low-risk",
+      "engine": "ransomware",
+      "input": {
+        "window_seconds": 60,
+        "file_operations": 100,
+        "renamed_files": 40,
+        "extension_changes": 0,
+        "high_entropy_writes": 0,
+        "distinct_directories": 2
+      },
+      "expected": {
+        "severity": "low",
+        "risk_score": 0.115,
+        "enforced": false,
+        "reason_contains": ["Burst of file renames detected"]
+      }
+    },
+    {
+      "id": "file-risk-safe-document",
+      "engine": "file_risk",
+      "input": {
+        "filename": "report.pdf",
+        "size_bytes": 50000,
+        "entropy": 4.2,
+        "known_signature_match": false
+      },
+      "expected": {
+        "severity": "info",
+        "classification": "low-risk",
+        "risk_score": 0.0
+      }
+    },
+    {
+      "id": "file-risk-disguised-executable",
+      "engine": "file_risk",
+      "input": {
+        "filename": "invoice.pdf.exe",
+        "size_bytes": 500000,
+        "entropy": 7.9,
+        "known_signature_match": false
+      },
+      "expected": {
+        "severity": "high",
+        "classification": "high-risk",
+        "risk_score": 0.85,
+        "indicator_contains": [
+          "Executable or script extension",
+          "Double extension",
+          "High file entropy"
+        ]
+      }
+    },
+    {
+      "id": "file-risk-signature-match",
+      "engine": "file_risk",
+      "input": {
+        "filename": "payload.bin",
+        "size_bytes": 1024,
+        "entropy": 3.0,
+        "known_signature_match": true
+      },
+      "expected": {
+        "severity": "high",
+        "classification": "high-risk",
+        "risk_score": 0.9,
+        "indicator_contains": ["Matched a configured local signature"]
+      }
+    },
+    {
+      "id": "file-risk-script-extension",
+      "engine": "file_risk",
+      "input": {
+        "filename": "maintenance.ps1",
+        "size_bytes": 1000,
+        "entropy": 4.0,
+        "known_signature_match": false
+      },
+      "expected": {
+        "severity": "low",
+        "classification": "suspicious",
+        "risk_score": 0.2,
+        "indicator_contains": ["Executable or script extension"]
+      }
+    },
+    {
+      "id": "correlation-cross-source-shared-asset",
+      "engine": "correlation",
+      "input": {
+        "max_time_gap_seconds": 900,
+        "events": [
+          {
+            "id": "10000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "source": "zeek",
+            "event_type": "connection",
+            "severity": "medium",
+            "asset_id": "11111111-1111-4111-8111-111111111111",
+            "summary": "Outbound connection anomaly"
+          },
+          {
+            "id": "10000000-0000-4000-8000-000000000002",
+            "timestamp": "2026-09-15T12:05:00Z",
+            "source": "suricata",
+            "event_type": "alert",
+            "severity": "high",
+            "asset_id": "11111111-1111-4111-8111-111111111111",
+            "summary": "IDS alert on same asset"
+          }
+        ]
+      },
+      "expected": {
+        "incident_count": 1,
+        "severity": "high",
+        "risk_score": 0.7,
+        "event_count": 2,
+        "source_count": 2,
+        "indicator_types": ["asset_id"]
+      }
+    },
+    {
+      "id": "correlation-single-source-not-incident",
+      "engine": "correlation",
+      "input": {
+        "max_time_gap_seconds": 900,
+        "events": [
+          {
+            "id": "20000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "source": "zeek",
+            "event_type": "connection",
+            "severity": "medium",
+            "asset_id": "22222222-2222-4222-8222-222222222222",
+            "summary": "First same-source event"
+          },
+          {
+            "id": "20000000-0000-4000-8000-000000000002",
+            "timestamp": "2026-09-15T12:03:00Z",
+            "source": "zeek",
+            "event_type": "dns",
+            "severity": "high",
+            "asset_id": "22222222-2222-4222-8222-222222222222",
+            "summary": "Second same-source event"
+          }
+        ]
+      },
+      "expected": {
+        "incident_count": 0
+      }
+    },
+    {
+      "id": "correlation-outside-window-not-incident",
+      "engine": "correlation",
+      "input": {
+        "max_time_gap_seconds": 900,
+        "events": [
+          {
+            "id": "30000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "source": "zeek",
+            "event_type": "connection",
+            "severity": "medium",
+            "asset_id": "33333333-3333-4333-8333-333333333333",
+            "summary": "Earlier event"
+          },
+          {
+            "id": "30000000-0000-4000-8000-000000000002",
+            "timestamp": "2026-09-15T12:30:00Z",
+            "source": "suricata",
+            "event_type": "alert",
+            "severity": "high",
+            "asset_id": "33333333-3333-4333-8333-333333333333",
+            "summary": "Later event beyond correlation window"
+          }
+        ]
+      },
+      "expected": {
+        "incident_count": 0
+      }
+    },
+    {
+      "id": "correlation-three-source-shared-user",
+      "engine": "correlation",
+      "input": {
+        "max_time_gap_seconds": 900,
+        "events": [
+          {
+            "id": "40000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "source": "zeek",
+            "event_type": "connection",
+            "severity": "medium",
+            "user_id": "shared-user@example.com",
+            "summary": "Network event"
+          },
+          {
+            "id": "40000000-0000-4000-8000-000000000002",
+            "timestamp": "2026-09-15T12:02:00Z",
+            "source": "suricata",
+            "event_type": "alert",
+            "severity": "high",
+            "user_id": "shared-user@example.com",
+            "summary": "IDS event"
+          },
+          {
+            "id": "40000000-0000-4000-8000-000000000003",
+            "timestamp": "2026-09-15T12:04:00Z",
+            "source": "host",
+            "event_type": "file_activity",
+            "severity": "medium",
+            "user_id": "shared-user@example.com",
+            "summary": "Host event"
+          }
+        ]
+      },
+      "expected": {
+        "incident_count": 1,
+        "severity": "high",
+        "risk_score": 0.7,
+        "event_count": 3,
+        "source_count": 3,
+        "indicator_types": ["user_id"]
+      }
+    }
+  ]
+}
