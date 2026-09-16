@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import time
 from collections.abc import Iterator
@@ -55,8 +56,9 @@ def main() -> int:
     hostname = socket.gethostname()
     sensor_id = args.sensor_id or uuid5(NAMESPACE_DNS, f"privashield:{hostname}:{args.source}")
     sensor_name = args.sensor_name or f"{args.source}-{hostname}"
+    api_token = os.getenv("PRIVASHIELD_API_TOKEN") or None
 
-    with CollectorClient(args.api_url) as client:
+    with CollectorClient(args.api_url, api_token=api_token) as client:
         client.heartbeat(
             sensor_id=sensor_id,
             name=sensor_name,
