@@ -31,3 +31,51 @@ jobs:
         run: node --check apps/dashboard/app.js
       - name: Validate Compose
         run: docker compose config >/dev/null
+
+  sbom:
+    needs: api
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install SBOM generator
+        run: python -m pip install "cyclonedx-bom==7.4.0"
+      - name: Build clean runtime environment
+        shell: bash
+        run: |
+          python -m venv /tmp/privashield-sbom
+          /tmp/privashield-sbom/bin/python -m pip install --upgrade pip
+          /tmp/privashield-sbom/bin/python -m pip install .
+      - name: Generate reproducible CycloneDX SBOM
+        run: >-
+          cyclonedx-py environment /tmp/privashield-sbom/bin/python
+          --output-reproducible
+          --spec-version 1.6
+          --output-format JSON
+          --output-file sbom.cdx.json
+      - name: Validate SBOM
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("sbom.cdx.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data.get("bomFormat") == "CycloneDX"
+          assert data.get("specVersion") == "1.6"
+          assert data.get("components"), "SBOM contains no components"
+          print(f"Validated {len(data['components'])} SBOM components")
+          PY
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: privashield-cyclonedx-sbom
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 90
