@@ -12,7 +12,11 @@ from .policy_models import PolicyHistoryEvent, PolicyRevision, PolicyStatus
 
 
 class PolicyRepository(Protocol):
-    async def add_revision(self, revision: PolicyRevision) -> PolicyRevision: ...
+    async def register_revision(
+        self,
+        revision: PolicyRevision,
+        event: PolicyHistoryEvent,
+    ) -> PolicyRevision: ...
 
     async def get_revision(self, policy_id: UUID, version: int) -> PolicyRevision | None: ...
 
@@ -20,9 +24,11 @@ class PolicyRepository(Protocol):
 
     async def active_revision(self, policy_id: UUID) -> PolicyRevision | None: ...
 
-    async def save_revisions(self, revisions: list[PolicyRevision]) -> None: ...
-
-    async def append_history(self, events: list[PolicyHistoryEvent]) -> None: ...
+    async def commit_transition(
+        self,
+        revisions: list[PolicyRevision],
+        events: list[PolicyHistoryEvent],
+    ) -> None: ...
 
     async def list_history(self, policy_id: UUID) -> list[PolicyHistoryEvent]: ...
 
@@ -32,11 +38,16 @@ class InMemoryPolicyRepository:
         self._revisions: dict[tuple[UUID, int], PolicyRevision] = {}
         self._history: list[PolicyHistoryEvent] = []
 
-    async def add_revision(self, revision: PolicyRevision) -> PolicyRevision:
+    async def register_revision(
+        self,
+        revision: PolicyRevision,
+        event: PolicyHistoryEvent,
+    ) -> PolicyRevision:
         key = (revision.policy_id, revision.version)
         if key in self._revisions:
             raise ValueError("policy revision already exists")
         self._revisions[key] = revision.model_copy(deep=True)
+        self._history.append(event.model_copy(deep=True))
         return revision.model_copy(deep=True)
 
     async def get_revision(self, policy_id: UUID, version: int) -> PolicyRevision | None:
@@ -57,15 +68,17 @@ class InMemoryPolicyRepository:
                 return revision.model_copy(deep=True)
         return None
 
-    async def save_revisions(self, revisions: list[PolicyRevision]) -> None:
+    async def commit_transition(
+        self,
+        revisions: list[PolicyRevision],
+        events: list[PolicyHistoryEvent],
+    ) -> None:
         for revision in revisions:
             key = (revision.policy_id, revision.version)
             if key not in self._revisions:
                 raise ValueError("policy revision does not exist")
         for revision in revisions:
             self._revisions[(revision.policy_id, revision.version)] = revision.model_copy(deep=True)
-
-    async def append_history(self, events: list[PolicyHistoryEvent]) -> None:
         self._history.extend(event.model_copy(deep=True) for event in events)
 
     async def list_history(self, policy_id: UUID) -> list[PolicyHistoryEvent]:
@@ -81,9 +94,14 @@ class SqlPolicyRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def add_revision(self, revision: PolicyRevision) -> PolicyRevision:
+    async def register_revision(
+        self,
+        revision: PolicyRevision,
+        event: PolicyHistoryEvent,
+    ) -> PolicyRevision:
         async with self._session_factory() as session:
             session.add(PolicyRevisionRecord.from_revision(revision))
+            session.add(PolicyHistoryRecord.from_event(event))
             try:
                 await session.commit()
             except IntegrityError as exc:
@@ -115,7 +133,11 @@ class SqlPolicyRepository:
             record = await session.scalar(statement)
             return record.to_revision() if record else None
 
-    async def save_revisions(self, revisions: list[PolicyRevision]) -> None:
+    async def commit_transition(
+        self,
+        revisions: list[PolicyRevision],
+        events: list[PolicyHistoryEvent],
+    ) -> None:
         async with self._session_factory() as session:
             for revision in revisions:
                 record = await session.get(
@@ -125,10 +147,6 @@ class SqlPolicyRepository:
                 if record is None:
                     raise ValueError("policy revision does not exist")
                 record.apply_revision(revision)
-            await session.commit()
-
-    async def append_history(self, events: list[PolicyHistoryEvent]) -> None:
-        async with self._session_factory() as session:
             session.add_all(PolicyHistoryRecord.from_event(event) for event in events)
             await session.commit()
 
