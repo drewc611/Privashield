@@ -17,6 +17,7 @@ from .feedback_repository import InMemoryFeedbackRepository, SqlFeedbackReposito
 from .firewall import FirewallController
 from .policy import PolicyService
 from .policy_repository import InMemoryPolicyRepository, SqlPolicyRepository
+from .policy_signing import load_public_key
 from .realtime import EventHub
 from .repository import InMemoryEventRepository, SqlEventRepository
 from .response import ResponseStore
@@ -70,14 +71,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.feedback_repository = InMemoryFeedbackRepository()
             app.state.policy_repository = InMemoryPolicyRepository()
 
-        signing_secret = resolved_settings.policy_signing_key
-        signing_key = (
-            signing_secret.get_secret_value().encode("utf-8") if signing_secret is not None else None
-        )
+        public_key_text = resolved_settings.policy_verification_public_key
+        verification_key = load_public_key(public_key_text) if public_key_text else None
         app.state.policy_service = PolicyService(
             app.state.policy_repository,
-            signing_key=signing_key,
-            key_id=resolved_settings.policy_signing_key_id,
+            verification_key=verification_key,
+            key_id=resolved_settings.policy_verification_key_id,
         )
 
         if resolved_settings.nats_enabled:
