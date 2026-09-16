@@ -52,8 +52,8 @@ A checked item means the capability exists in the repository. It does **not** im
 - [x] Simulated file-quarantine workflow
 - [x] Simulated process-stop workflow
 - [x] Explicit `privileged_execution=false` capability boundary
-- [ ] Deterministic signed policy model
-- [ ] Policy versioning and approval history
+- [x] Deterministic signed policy model
+- [x] Policy versioning and approval history
 - [ ] Kill-switch and rollback qualification for future enforcement
 
 ## Security and software assurance
