@@ -24,6 +24,7 @@ from .routes.dlp import router as dlp_router
 from .routes.events import router as events_router
 from .routes.firewall import router as firewall_router
 from .routes.health import router as health_router
+from .routes.incidents import router as incidents_router
 from .routes.malware import router as malware_router
 from .routes.ransomware import router as ransomware_router
 from .routes.realtime import router as realtime_router
@@ -98,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         anomaly_router,
         ransomware_router,
         malware_router,
+        incidents_router,
         response_router,
         audit_router,
         realtime_router,

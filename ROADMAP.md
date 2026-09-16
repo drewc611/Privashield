@@ -33,7 +33,7 @@ A checked item means the capability exists in the repository. It does **not** im
 - [x] Ransomware behavior scoring
 - [x] File-risk scoring
 - [x] Read-only host filesystem monitor
-- [ ] Cross-sensor incident correlation
+- [x] Cross-sensor incident correlation
 - [ ] Analyst feedback and labeling loop
 - [ ] Detection evaluation corpus and benchmark harness
 - [ ] Model/rule quality metrics and regression thresholds
