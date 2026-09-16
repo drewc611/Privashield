@@ -35,7 +35,10 @@ async def correlate_selected_events(
     if missing:
         raise HTTPException(
             status_code=404,
-            detail={"message": "one or more events were not found", "event_ids": [str(item) for item in missing]},
+            detail={
+                "message": "one or more events were not found",
+                "event_ids": [str(item) for item in missing],
+            },
         )
 
     return correlate_events(events, max_time_gap_seconds=request.max_time_gap_seconds)
