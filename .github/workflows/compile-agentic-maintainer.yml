@@ -1,3 +1,4 @@
+# Temporary branch-only compiler. Remove before merge.
 name: Compile Agentic Maintainer
 
 on:
