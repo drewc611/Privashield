@@ -34,7 +34,7 @@ A checked item means the capability exists in the repository. It does **not** im
 - [x] File-risk scoring
 - [x] Read-only host filesystem monitor
 - [x] Cross-sensor incident correlation
-- [ ] Analyst feedback and labeling loop
+- [x] Analyst feedback and labeling loop
 - [ ] Detection evaluation corpus and benchmark harness
 - [ ] Model/rule quality metrics and regression thresholds
 
