@@ -1,7 +1,6 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,8 +28,8 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3"
     audit_path: str | None = None
     sensor_ttl_seconds: int = 60
-    policy_signing_key: SecretStr | None = None
-    policy_signing_key_id: str = "local-v1"
+    policy_verification_public_key: str | None = None
+    policy_verification_key_id: str = "local-v1"
 
     model_config = SettingsConfigDict(
         env_prefix="PRIVASHIELD_",
