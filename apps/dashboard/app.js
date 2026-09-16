@@ -36,7 +36,9 @@ async function request(path, options = {}) {
     if (response.status === 401) {
       detail = 'Authentication required. Enter a local bearer token.';
     }
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }
@@ -82,15 +84,44 @@ function renderIdentity(identity) {
   $('authIdentity').textContent = `${identity.name} · ${identity.role} · ${verified}`;
 }
 
+function renderAuditRestricted() {
+  $('metricAudit').textContent = 'RESTRICTED';
+  $('metricAudit').className = '';
+  $('auditCount').textContent = 'auditor/admin only';
+  $('auditVerification').innerHTML = '<p class="muted">Audit verification requires auditor or administrator authority.</p>';
+  $('auditEntries').innerHTML = '<p class="muted">Audit entries are restricted for this role.</p>';
+}
+
+async function loadAudit() {
+  try {
+    const verification = await request('/audit/verify');
+    $('metricAudit').textContent = verification.valid ? 'VALID' : 'INVALID';
+    $('metricAudit').className = verification.valid ? 'ok-text' : 'warn-text';
+    $('auditCount').textContent = `${verification.entries} entries`;
+    $('auditVerification').innerHTML = `<p class="${verification.valid ? 'ok-text' : 'warn-text'}"><strong>${verification.valid ? 'Hash chain verified' : 'Integrity failure detected'}</strong></p><p class="muted">Entries checked: ${verification.entries}</p>`;
+    const entries = await request('/audit?limit=30');
+    $('auditEntries').innerHTML = entries.reverse().map(e =>
+      `<div class="audit-entry"><strong>#${e.sequence} ${esc(e.action)}</strong><p>${esc(e.actor)} · ${esc(e.resource_type)}</p><p>${new Date(e.timestamp).toLocaleString()}</p></div>`
+    ).join('') || '<p class="muted">No audit entries yet.</p>';
+  } catch (error) {
+    if (error.status === 403) {
+      renderAuditRestricted();
+      return;
+    }
+    $('metricAudit').textContent = 'UNKNOWN';
+    $('auditCount').textContent = 'verification unavailable';
+    $('auditVerification').innerHTML = `<p class="warn-text">${esc(error.message)}</p>`;
+  }
+}
+
 async function refresh() {
   try {
-    const [identity, status, stats, recent, sensors, audit, firewall, ai] = await Promise.all([
+    const [identity, status, stats, recent, sensors, firewall, ai] = await Promise.all([
       request('/auth/me'),
       request('/system/status'),
       request('/events/stats'),
       request('/events?limit=100'),
       request('/sensors'),
-      request('/audit/verify'),
       request('/firewall/config'),
       request('/ai/status')
     ]);
@@ -102,7 +133,6 @@ async function refresh() {
     $('metricEvents').textContent = stats.total;
     $('metricHigh').textContent = (stats.by_severity?.high || 0) + (stats.by_severity?.critical || 0);
     renderSensors(sensors);
-    renderAudit(audit);
     $('firewallMode').value = firewall.mode;
     $('firewallThreshold').value = firewall.threshold;
     $('thresholdValue').textContent = Number(firewall.threshold).toFixed(2);
@@ -110,6 +140,7 @@ async function refresh() {
     $('connectionDot').className = 'dot ok';
     $('connectionText').textContent = 'API connected';
     connectStream();
+    await loadAudit();
   } catch (error) {
     $('connectionDot').className = 'dot bad';
     $('connectionText').textContent = 'API unavailable';
@@ -125,19 +156,6 @@ function renderSensors(sensors) {
   $('sensorCards').innerHTML = sensors.map(s =>
     `<div class="sensor-card"><header><strong>${esc(s.name)}</strong><span class="${s.active ? 'ok-text' : 'warn-text'}">${s.active ? 'ACTIVE' : 'STALE'}</span></header><p>${esc(s.sensor_type)} · ${esc(s.hostname)}</p><p>Interface ${esc(s.interface || 'n/a')} · Last seen ${new Date(s.last_seen).toLocaleString()}</p></div>`
   ).join('') || '<p class="muted">No collector heartbeats have been received.</p>';
-}
-
-async function renderAudit(verification) {
-  $('metricAudit').textContent = verification.valid ? 'VALID' : 'INVALID';
-  $('metricAudit').className = verification.valid ? 'ok-text' : 'warn-text';
-  $('auditCount').textContent = `${verification.entries} entries`;
-  $('auditVerification').innerHTML = `<p class="${verification.valid ? 'ok-text' : 'warn-text'}"><strong>${verification.valid ? 'Hash chain verified' : 'Integrity failure detected'}</strong></p><p class="muted">Entries checked: ${verification.entries}</p>`;
-  try {
-    const entries = await request('/audit?limit=30');
-    $('auditEntries').innerHTML = entries.reverse().map(e =>
-      `<div class="audit-entry"><strong>#${e.sequence} ${esc(e.action)}</strong><p>${esc(e.actor)} · ${esc(e.resource_type)}</p><p>${new Date(e.timestamp).toLocaleString()}</p></div>`
-    ).join('') || '<p class="muted">No audit entries yet.</p>';
-  } catch {}
 }
 
 function disconnectStream() {
