@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from .feedback_models import AnalystFeedback
+from .policy_models import PolicyHistoryEvent, PolicyRevision
 from .schemas import SecurityEvent
 
 
@@ -136,6 +137,112 @@ class AnalystFeedbackRecord(Base):
             tags=self.tags_json or [],
             identity_verified=self.identity_verified,
             schema_version=self.schema_version,
+        )
+
+
+class PolicyRevisionRecord(Base):
+    __tablename__ = "policy_revisions"
+
+    policy_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    document_json: Mapped[dict[str, Any]] = mapped_column("document", JSON)
+    key_id: Mapped[str] = mapped_column(String(128))
+    algorithm: Mapped[str] = mapped_column(String(32))
+    signature: Mapped[str] = mapped_column(String(64))
+    content_digest: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_by: Mapped[str] = mapped_column(String(256))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    approved_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    activated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signature_valid: Mapped[bool] = mapped_column(Boolean, default=True)
+    enforced: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    @classmethod
+    def from_revision(cls, revision: PolicyRevision) -> PolicyRevisionRecord:
+        return cls(
+            policy_id=revision.policy_id,
+            version=revision.version,
+            document_json=revision.document.model_dump(mode="json"),
+            key_id=revision.key_id,
+            algorithm=revision.algorithm,
+            signature=revision.signature,
+            content_digest=revision.content_digest,
+            status=revision.status.value,
+            created_by=revision.created_by,
+            created_at=revision.created_at,
+            approved_by=revision.approved_by,
+            approved_at=revision.approved_at,
+            activated_by=revision.activated_by,
+            activated_at=revision.activated_at,
+            signature_valid=revision.signature_valid,
+            enforced=False,
+        )
+
+    def apply_revision(self, revision: PolicyRevision) -> None:
+        self.status = revision.status.value
+        self.approved_by = revision.approved_by
+        self.approved_at = revision.approved_at
+        self.activated_by = revision.activated_by
+        self.activated_at = revision.activated_at
+        self.signature_valid = revision.signature_valid
+        self.enforced = False
+
+    def to_revision(self) -> PolicyRevision:
+        return PolicyRevision(
+            policy_id=self.policy_id,
+            version=self.version,
+            document=self.document_json,
+            key_id=self.key_id,
+            algorithm=self.algorithm,
+            signature=self.signature,
+            content_digest=self.content_digest,
+            status=self.status,
+            created_by=self.created_by,
+            created_at=self.created_at,
+            approved_by=self.approved_by,
+            approved_at=self.approved_at,
+            activated_by=self.activated_by,
+            activated_at=self.activated_at,
+            signature_valid=self.signature_valid,
+            enforced=False,
+        )
+
+
+class PolicyHistoryRecord(Base):
+    __tablename__ = "policy_history"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    policy_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), index=True)
+    version: Mapped[int] = mapped_column(Integer, index=True)
+    event_type: Mapped[str] = mapped_column(String(32), index=True)
+    actor: Mapped[str] = mapped_column(String(256))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
+
+    @classmethod
+    def from_event(cls, event: PolicyHistoryEvent) -> PolicyHistoryRecord:
+        return cls(
+            id=event.id,
+            policy_id=event.policy_id,
+            version=event.version,
+            event_type=event.event_type.value,
+            actor=event.actor,
+            created_at=event.created_at,
+            metadata_json=event.metadata,
+        )
+
+    def to_event(self) -> PolicyHistoryEvent:
+        return PolicyHistoryEvent(
+            id=self.id,
+            policy_id=self.policy_id,
+            version=self.version,
+            event_type=self.event_type,
+            actor=self.actor,
+            created_at=self.created_at,
+            metadata=self.metadata_json or {},
         )
 
 
