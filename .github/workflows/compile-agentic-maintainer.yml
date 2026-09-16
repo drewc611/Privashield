@@ -1,0 +1,46 @@
+name: Compile Agentic Maintainer
+
+on:
+  push:
+    branches:
+      - chore/github-agentic-maintainer
+    paths:
+      - .github/workflows/daily-autonomous-maintainer.md
+      - .github/workflows/compile-agentic-maintainer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/github-agentic-maintainer
+          fetch-depth: 0
+
+      - name: Install GitHub CLI agentic-workflows extension
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-aw
+
+      - name: Compile hardened lock workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh aw compile daily-autonomous-maintainer --strict
+
+      - name: Commit generated workflow artifacts
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/daily-autonomous-maintainer.lock.yml .github/aw/actions-lock.json .gitattributes 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git commit -m "build: compile agentic maintainer workflow"
+          git push origin HEAD:chore/github-agentic-maintainer
