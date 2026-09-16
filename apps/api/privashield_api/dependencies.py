@@ -1,8 +1,10 @@
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 from .ai import OllamaThreatAnalyzer
 from .anomaly import AnomalyEngine
 from .audit import AuditLedger
+from .auth import AuthService
+from .auth_models import PrincipalContext
 from .bus import EventBus
 from .feedback_repository import FeedbackRepository
 from .firewall import FirewallController
@@ -55,3 +57,14 @@ def get_response_store(request: Request) -> ResponseStore:
 
 def get_policy_service(request: Request) -> PolicyService:
     return request.app.state.policy_service
+
+
+def get_auth_service(request: Request) -> AuthService:
+    return request.app.state.auth_service
+
+
+def get_current_principal(request: Request) -> PrincipalContext:
+    principal = getattr(request.state, "principal", None)
+    if principal is None:
+        raise HTTPException(status_code=401, detail="authentication required")
+    return principal
