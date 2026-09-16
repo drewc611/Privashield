@@ -13,6 +13,7 @@ from .audit import AuditLedger
 from .bus import NatsEventBus, NullEventBus
 from .config import Settings, get_settings
 from .database import build_engine, build_session_factory, initialize_schema
+from .feedback_repository import InMemoryFeedbackRepository, SqlFeedbackRepository
 from .firewall import FirewallController
 from .realtime import EventHub
 from .repository import InMemoryEventRepository, SqlEventRepository
@@ -22,6 +23,7 @@ from .routes.anomaly import router as anomaly_router
 from .routes.audit import router as audit_router
 from .routes.dlp import router as dlp_router
 from .routes.events import router as events_router
+from .routes.feedback import router as feedback_router
 from .routes.firewall import router as firewall_router
 from .routes.health import router as health_router
 from .routes.incidents import router as incidents_router
@@ -58,8 +60,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             session_factory = build_session_factory(engine)
             app.state.database_engine = engine
             app.state.event_repository = SqlEventRepository(session_factory)
+            app.state.feedback_repository = SqlFeedbackRepository(session_factory)
         else:
             app.state.event_repository = InMemoryEventRepository()
+            app.state.feedback_repository = InMemoryFeedbackRepository()
 
         if resolved_settings.nats_enabled:
             event_bus = NatsEventBus(resolved_settings.nats_url, resolved_settings.nats_stream)
@@ -100,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ransomware_router,
         malware_router,
         incidents_router,
+        feedback_router,
         response_router,
         audit_router,
         realtime_router,
