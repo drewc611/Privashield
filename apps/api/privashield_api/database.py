@@ -148,7 +148,7 @@ class PolicyRevisionRecord(Base):
     document_json: Mapped[dict[str, Any]] = mapped_column("document", JSON)
     key_id: Mapped[str] = mapped_column(String(128))
     algorithm: Mapped[str] = mapped_column(String(32))
-    signature: Mapped[str] = mapped_column(String(64))
+    signature: Mapped[str] = mapped_column(String(128))
     content_digest: Mapped[str] = mapped_column(String(64), index=True)
     status: Mapped[str] = mapped_column(String(32), index=True)
     created_by: Mapped[str] = mapped_column(String(256))
