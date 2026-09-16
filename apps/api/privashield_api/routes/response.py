@@ -4,7 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..audit import AuditLedger
-from ..dependencies import get_audit_ledger, get_response_store
+from ..auth_models import PrincipalContext
+from ..dependencies import get_audit_ledger, get_current_principal, get_response_store
 from ..response import ResponseStore
 from ..response_models import (
     ApprovalRequest,
@@ -16,6 +17,11 @@ from ..response_models import (
 router = APIRouter(prefix="/response", tags=["response"])
 StoreDependency = Annotated[ResponseStore, Depends(get_response_store)]
 AuditDependency = Annotated[AuditLedger, Depends(get_audit_ledger)]
+PrincipalDependency = Annotated[PrincipalContext, Depends(get_current_principal)]
+
+
+def _human_actor(principal: PrincipalContext, fallback: str) -> str:
+    return principal.audit_actor if principal.credential_verified else fallback
 
 
 @router.get("/capabilities", response_model=ResponseCapabilities)
@@ -28,14 +34,19 @@ async def create_action(
     request: ResponseActionCreate,
     store: StoreDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> ResponseAction:
-    action = store.create(request)
+    actor = _human_actor(principal, "operator")
+    action = store.create(request, requested_by=actor)
     await audit.append(
-        actor="operator",
+        actor=actor,
         action="response.action.requested",
         resource_type="response_action",
         resource_id=str(action.id),
-        payload=action.model_dump(mode="json"),
+        payload={
+            **action.model_dump(mode="json"),
+            "identity_verified": principal.credential_verified,
+        },
     )
     return action
 
@@ -51,16 +62,21 @@ async def approve_action(
     request: ApprovalRequest,
     store: StoreDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> ResponseAction:
-    action = store.approve(action_id, request.approved_by)
+    actor = _human_actor(principal, request.approved_by)
+    action = store.approve(action_id, actor)
     if action is None:
         raise HTTPException(status_code=409, detail="action is not pending or does not exist")
     await audit.append(
-        actor=request.approved_by,
+        actor=actor,
         action="response.action.approved",
         resource_type="response_action",
         resource_id=str(action.id),
-        payload=action.model_dump(mode="json"),
+        payload={
+            **action.model_dump(mode="json"),
+            "identity_verified": principal.credential_verified,
+        },
     )
     return action
 
@@ -89,15 +105,20 @@ async def cancel_action(
     action_id: UUID,
     store: StoreDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> ResponseAction:
+    actor = _human_actor(principal, "operator")
     action = store.cancel(action_id)
     if action is None:
         raise HTTPException(status_code=409, detail="action cannot be cancelled")
     await audit.append(
-        actor="operator",
+        actor=actor,
         action="response.action.cancelled",
         resource_type="response_action",
         resource_id=str(action.id),
-        payload=action.model_dump(mode="json"),
+        payload={
+            **action.model_dump(mode="json"),
+            "identity_verified": principal.credential_verified,
+        },
     )
     return action

@@ -8,11 +8,18 @@ from privashield_api.schemas import SecurityEvent
 
 
 class CollectorClient:
-    def __init__(self, api_url: str, *, timeout_seconds: float = 10.0) -> None:
+    def __init__(
+        self,
+        api_url: str,
+        *,
+        api_token: str | None = None,
+        timeout_seconds: float = 10.0,
+    ) -> None:
         base = api_url.rstrip("/")
         self._event_endpoint = f"{base}/api/v1/events/ingest"
         self._heartbeat_endpoint = f"{base}/api/v1/sensors/heartbeat"
-        self._client = httpx.Client(timeout=timeout_seconds)
+        headers = {"Authorization": f"Bearer {api_token}"} if api_token else None
+        self._client = httpx.Client(timeout=timeout_seconds, headers=headers)
 
     def close(self) -> None:
         self._client.close()

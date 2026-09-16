@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +15,8 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://privashield:privashield@localhost:5432/privashield"
     )
     enforcement_mode: Literal["observe", "simulate"] = "observe"
+    auth_mode: Literal["disabled", "local"] = "disabled"
+    bootstrap_admin_token: SecretStr | None = None
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

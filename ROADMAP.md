@@ -74,9 +74,9 @@ A checked item means the capability exists in the repository. It does **not** im
 
 ## Operator and enterprise hardening
 
-- [ ] Role-based access control
+- [x] Local bearer authentication and server-side role-based access control
 - [ ] External identity provider integration
-- [ ] Multi-user audit attribution
+- [x] Multi-user verified audit attribution for authenticated local principals
 - [ ] Retention-policy controls
 - [ ] Backup/restore qualification
 - [ ] SIEM export connectors

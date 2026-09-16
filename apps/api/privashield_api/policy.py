@@ -97,6 +97,7 @@ class PolicyService:
         envelope: SignedPolicyEnvelope,
         *,
         created_by: str,
+        identity_verified: bool = False,
     ) -> PolicyRevision:
         self._verify_envelope(envelope)
         existing = await self._repository.list_revisions(envelope.policy_id)
@@ -130,7 +131,11 @@ class PolicyService:
             version=revision.version,
             event_type=PolicyHistoryEventType.REGISTERED,
             actor=created_by,
-            metadata={"content_digest": digest, "key_id": envelope.key_id},
+            metadata={
+                "content_digest": digest,
+                "key_id": envelope.key_id,
+                "identity_verified": identity_verified,
+            },
         )
         try:
             return await self._repository.register_revision(revision, event)
@@ -158,6 +163,7 @@ class PolicyService:
         version: int,
         *,
         approved_by: str,
+        identity_verified: bool = False,
     ) -> PolicyRevision:
         revision = await self.get(policy_id, version)
         if revision.status is not PolicyStatus.DRAFT:
@@ -176,7 +182,10 @@ class PolicyService:
             event_type=PolicyHistoryEventType.APPROVED,
             actor=approved_by,
             created_at=now,
-            metadata={"signature_verified": True, "identity_verified": False},
+            metadata={
+                "signature_verified": True,
+                "identity_verified": identity_verified,
+            },
         )
         try:
             await self._repository.commit_transition([revision], [event])
@@ -190,6 +199,7 @@ class PolicyService:
         version: int,
         *,
         activated_by: str,
+        identity_verified: bool = False,
     ) -> PolicyRevision:
         target = await self.get(policy_id, version)
         if target.status is not PolicyStatus.APPROVED:
@@ -211,7 +221,10 @@ class PolicyService:
                     event_type=PolicyHistoryEventType.SUPERSEDED,
                     actor=activated_by,
                     created_at=now,
-                    metadata={"superseded_by_version": version},
+                    metadata={
+                        "superseded_by_version": version,
+                        "identity_verified": identity_verified,
+                    },
                 )
             )
 
@@ -228,6 +241,7 @@ class PolicyService:
                 created_at=now,
                 metadata={
                     "signature_verified": True,
+                    "identity_verified": identity_verified,
                     "activation_effect": "simulation-governance-only",
                     "enforced": False,
                 },
@@ -245,6 +259,7 @@ class PolicyService:
         target_version: int,
         *,
         actor: str,
+        identity_verified: bool = False,
     ) -> PolicyRevision:
         current = await self._repository.active_revision(policy_id)
         if current is None:
@@ -272,7 +287,11 @@ class PolicyService:
                 event_type=PolicyHistoryEventType.SUPERSEDED,
                 actor=actor,
                 created_at=now,
-                metadata={"superseded_by_version": target_version, "rollback": True},
+                metadata={
+                    "superseded_by_version": target_version,
+                    "rollback": True,
+                    "identity_verified": identity_verified,
+                },
             ),
             PolicyHistoryEvent(
                 policy_id=policy_id,
@@ -283,6 +302,7 @@ class PolicyService:
                 metadata={
                     "from_version": current.version,
                     "signature_verified": True,
+                    "identity_verified": identity_verified,
                     "activation_effect": "simulation-governance-only",
                     "enforced": False,
                 },

@@ -4,7 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..audit import AuditLedger
-from ..dependencies import get_audit_ledger, get_policy_service
+from ..auth_models import PrincipalContext
+from ..dependencies import get_audit_ledger, get_current_principal, get_policy_service
 from ..policy import (
     PolicyConfigurationError,
     PolicyConflictError,
@@ -25,6 +26,7 @@ from ..policy_models import (
 router = APIRouter(prefix="/policies", tags=["policies"])
 PolicyDependency = Annotated[PolicyService, Depends(get_policy_service)]
 AuditDependency = Annotated[AuditLedger, Depends(get_audit_ledger)]
+PrincipalDependency = Annotated[PrincipalContext, Depends(get_current_principal)]
 
 
 def _raise_policy_error(exc: Exception) -> None:
@@ -39,6 +41,10 @@ def _raise_policy_error(exc: Exception) -> None:
     raise exc
 
 
+def _human_actor(principal: PrincipalContext, fallback: str) -> str:
+    return principal.audit_actor if principal.credential_verified else fallback
+
+
 @router.get("/capabilities", response_model=PolicyCapabilities)
 async def capabilities(service: PolicyDependency) -> PolicyCapabilities:
     return service.capabilities()
@@ -49,14 +55,20 @@ async def register_revision(
     request: PolicyRegisterRequest,
     service: PolicyDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> PolicyRevision:
+    actor = _human_actor(principal, request.created_by)
     try:
-        revision = await service.register(request.envelope, created_by=request.created_by)
+        revision = await service.register(
+            request.envelope,
+            created_by=actor,
+            identity_verified=principal.credential_verified,
+        )
     except Exception as exc:
         _raise_policy_error(exc)
         raise
     await audit.append(
-        actor=request.created_by,
+        actor=actor,
         action="policy.revision.registered",
         resource_type="policy_revision",
         resource_id=f"{revision.policy_id}:{revision.version}",
@@ -66,6 +78,7 @@ async def register_revision(
             "content_digest": revision.content_digest,
             "key_id": revision.key_id,
             "status": revision.status.value,
+            "identity_verified": principal.credential_verified,
             "enforced": False,
         },
     )
@@ -116,14 +129,21 @@ async def approve_revision(
     request: PolicyApprovalRequest,
     service: PolicyDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> PolicyRevision:
+    actor = _human_actor(principal, request.approved_by)
     try:
-        revision = await service.approve(policy_id, version, approved_by=request.approved_by)
+        revision = await service.approve(
+            policy_id,
+            version,
+            approved_by=actor,
+            identity_verified=principal.credential_verified,
+        )
     except Exception as exc:
         _raise_policy_error(exc)
         raise
     await audit.append(
-        actor=request.approved_by,
+        actor=actor,
         action="policy.revision.approved",
         resource_type="policy_revision",
         resource_id=f"{policy_id}:{version}",
@@ -131,7 +151,7 @@ async def approve_revision(
             "content_digest": revision.content_digest,
             "signature_valid": revision.signature_valid,
             "status": revision.status.value,
-            "identity_verified": False,
+            "identity_verified": principal.credential_verified,
             "enforced": False,
         },
     )
@@ -145,20 +165,28 @@ async def activate_revision(
     request: PolicyActivationRequest,
     service: PolicyDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> PolicyRevision:
+    actor = _human_actor(principal, request.activated_by)
     try:
-        revision = await service.activate(policy_id, version, activated_by=request.activated_by)
+        revision = await service.activate(
+            policy_id,
+            version,
+            activated_by=actor,
+            identity_verified=principal.credential_verified,
+        )
     except Exception as exc:
         _raise_policy_error(exc)
         raise
     await audit.append(
-        actor=request.activated_by,
+        actor=actor,
         action="policy.revision.activated",
         resource_type="policy_revision",
         resource_id=f"{policy_id}:{version}",
         payload={
             "content_digest": revision.content_digest,
             "status": revision.status.value,
+            "identity_verified": principal.credential_verified,
             "activation_effect": "simulation-governance-only",
             "enforced": False,
         },
@@ -172,24 +200,28 @@ async def rollback_policy(
     request: PolicyRollbackRequest,
     service: PolicyDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> PolicyRevision:
+    actor = _human_actor(principal, request.actor)
     try:
         revision = await service.rollback(
             policy_id,
             request.target_version,
-            actor=request.actor,
+            actor=actor,
+            identity_verified=principal.credential_verified,
         )
     except Exception as exc:
         _raise_policy_error(exc)
         raise
     await audit.append(
-        actor=request.actor,
+        actor=actor,
         action="policy.revision.rolled_back",
         resource_type="policy_revision",
         resource_id=f"{policy_id}:{request.target_version}",
         payload={
             "content_digest": revision.content_digest,
             "status": revision.status.value,
+            "identity_verified": principal.credential_verified,
             "activation_effect": "simulation-governance-only",
             "enforced": False,
         },

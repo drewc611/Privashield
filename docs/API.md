@@ -6,193 +6,204 @@ Base path: `/api/v1`
 
 - JSON request/response bodies unless otherwise noted
 - UTC timestamps in RFC 3339 format
-- UUIDv7 preferred for sortable domain identifiers when implementation support is stable; UUIDv4 is acceptable initially
-- structured error envelopes
-- pagination for collection endpoints
-- optimistic version fields for mutable configuration/policy resources
-- Server-Sent Events or WebSocket for live dashboard updates
+- bearer authentication when `PRIVASHIELD_AUTH_MODE=local`
+- 401 for missing/invalid credentials and 403 for insufficient role authority
+- UUID domain identifiers
+- server-side RBAC; dashboard visibility is not authorization
+- WebSocket for live dashboard updates
 
-## Error envelope
+## Authentication and principals
+
+### GET `/auth/me`
+Returns the authenticated principal context: principal ID where durable, name, role, credential-verification state, and bootstrap state.
+
+### GET `/auth/capabilities`
+Returns authentication mode and capability metadata. In `local` mode this endpoint itself requires an authenticated principal.
+
+### GET `/principals`
+Administrator only. Lists local principals without token digests or raw tokens.
+
+### POST `/principals`
+Administrator only. Creates a local principal and returns a high-entropy bearer token exactly once.
+
+Request:
 
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Request failed validation",
-    "details": [],
-    "request_id": "..."
-  }
+  "name": "soc-operator-01",
+  "role": "operator"
 }
 ```
+
+### POST `/principals/{principal_id}/rotate`
+Administrator only. Issues a new one-time token and immediately invalidates the previous token.
+
+### POST `/principals/{principal_id}/disable`
+Administrator only. Immediately invalidates the principal credential. A durable administrator cannot disable itself; without a configured bootstrap credential, the last enabled durable administrator cannot be disabled.
+
+See `docs/AUTHENTICATION.md`.
+
+## Role summary
+
+- `viewer`: ordinary read access
+- `analyst`: investigation and analysis mutations
+- `operator`: bounded operational mutations, sensor ingestion, response simulation, and signed policy lifecycle
+- `administrator`: principal administration, operator authority, and audit access
+- `auditor`: audit/policy evidence reads without operational mutation
+
+The exact route matrix is enforced by the API authorization middleware.
 
 ## Health and status
 
 ### GET `/health`
-Liveness check for the API process.
+Public liveness check. This is intentionally available without credentials.
 
 ### GET `/system/status`
-Returns database, event bus, workers, model provider, sensors, audit verifier, and enforcement-mode state.
+Returns local component and enforcement-mode state. Authenticated in local mode.
 
 ## Events
 
-### POST `/events`
-Ingest a normalized or adapter-tagged security event.
-
-Required logical fields: `source`, `event_type`, `observed_at`, `severity`, and `payload` or structured context.
-
-Response: accepted canonical event identifier and ingestion status.
+### POST `/events/ingest`
+Operator or administrator. Ingests a canonical `SecurityEvent`. Internal collectors use this endpoint.
 
 ### GET `/events`
-Filters: time range, source, event type, severity, subject, network address, correlation ID, processing status.
+Returns recent canonical events with supported filters/pagination.
+
+### GET `/events/stats`
+Returns aggregate severity/source counts.
 
 ### GET `/events/{event_id}`
-Returns the canonical event plus evidence references and derived findings the caller is authorized to view.
+Returns one canonical event.
 
-### GET `/events/stream`
-Streams newly accepted events and state changes to the local dashboard.
+## Sensors
 
-## Alerts
+### POST `/sensors/heartbeat`
+Operator or administrator. Registers/refreshes sensor health.
 
-### GET `/alerts`
-Filters by status, severity, detector, source, subject, time, and assigned analyst.
+### GET `/sensors`
+Returns registered sensor health state.
 
-### GET `/alerts/{alert_id}`
-Returns alert, linked events/findings, decisions, AI summaries, and lifecycle history.
+Internal Suricata/Zeek collectors and the file monitor may send `PRIVASHIELD_API_TOKEN` as a bearer token when local auth is enabled.
 
-### PATCH `/alerts/{alert_id}`
-Permitted changes include acknowledgement, assignment, disposition, and notes. Every mutation creates an audit record.
+## AI and detection endpoints
 
-## Classifications
+The local AI layer is advisory only and has no enforcement authority.
 
-### POST `/classifications`
-Creates a classification job against bounded text/content or an evidence reference.
+Implemented analysis/detection route groups include:
 
-### GET `/classifications`
-Returns classification findings with category, confidence, span/reference, detector/model provenance, and policy outcome.
+- `/ai`
+- `/dlp`
+- `/anomaly`
+- `/ransomware`
+- `/malware`
+- `/incidents`
 
-### GET `/classifications/{classification_id}`
-Returns one classification result.
+Read operations are available to authenticated readers where applicable. Mutating/evaluation operations require analyst, operator, or administrator authority.
 
-## AI analysis
+## Analyst feedback
 
-### POST `/analysis`
-Creates an asynchronous analysis request.
+### POST `/feedback`
+Analyst, operator, or administrator. Creates an analyst label. In local-auth mode `identity_verified=true` is derived from the authenticated principal, not request content.
 
-Example logical request fields:
+### GET `/feedback`
+Analyst, operator, administrator, or auditor. Lists feedback.
 
-- `analysis_type`: `threat_summary`, `classification`, `remediation_assist`, `analyst_question`
-- `event_ids` / `alert_id`
-- bounded analyst question where applicable
-- requested local model profile
+### GET `/feedback/stats`
+Returns feedback distribution statistics.
 
-The endpoint returns `202 Accepted` and an analysis job ID.
+## Firewall simulation
 
-### GET `/analysis/{analysis_id}`
-Returns state, model/provider metadata, prompt-template version, evidence references, structured output, confidence/uncertainty metadata, and failure reason when applicable.
+### GET `/firewall/config`
+Returns the observe/simulate configuration.
 
-## Policies
+### PATCH `/firewall/config`
+Operator or administrator. Updates simulation configuration and records verified audit attribution when local auth is enabled.
 
-Signed policy governance is simulation-only. The API stores only an Ed25519 public verification key and cannot sign policy content. Actor strings are not identity-verified until RBAC/identity integration is implemented.
+### POST `/firewall/evaluate`
+Operator or administrator. Produces a deterministic simulated allow/drop decision. It does not mutate host or network state.
+
+## Response orchestration
+
+### GET `/response/capabilities`
+Returns supported simulated response types and `privileged_execution=false`.
+
+### POST `/response/actions`
+Operator or administrator. Creates a pending simulated response action. `requested_by` is derived from the authenticated principal when local auth is enabled.
+
+### GET `/response/actions`
+Returns response actions.
+
+### POST `/response/actions/{action_id}/approve`
+Operator or administrator. Approves a pending action. In local-auth mode caller-supplied `approved_by` text cannot override the verified principal identity.
+
+### POST `/response/actions/{action_id}/simulate`
+Operator or administrator. Executes simulation only. No privileged host/network mutation occurs.
+
+### POST `/response/actions/{action_id}/cancel`
+Operator or administrator. Cancels a pending/approved simulated action.
+
+## Signed policies
+
+Signed policy governance is simulation-only. The running API stores only an Ed25519 public verification key and cannot sign policy content.
+
+In local-auth mode human actor identity is derived from the verified principal. Legacy body actor strings are used only in explicitly unverified development mode.
 
 ### GET `/policies/capabilities`
-Returns whether public-key verification is configured, the configured key ID, the Ed25519 algorithm, mandatory human-approval state, and `privileged_execution=false`.
+Returns verification configuration, configured key ID, algorithm, mandatory approval state, and `privileged_execution=false`.
 
 ### POST `/policies/revisions`
-Registers an already signed policy revision after Ed25519 verification. Revisions are immutable signed documents with monotonically increasing versions.
+Operator or administrator. Registers an already signed policy revision after Ed25519 verification. Revisions increase monotonically.
 
 ### GET `/policies/{policy_id}/revisions`
-Lists stored revisions newest first.
+Operator, administrator, or auditor. Lists revisions newest first.
 
 ### GET `/policies/{policy_id}/revisions/{version}`
-Returns one stored revision including digest, signature metadata, lifecycle state, and non-enforcement state.
+Returns one stored revision.
 
 ### POST `/policies/{policy_id}/revisions/{version}/approve`
-Approves a draft revision. The approving actor string must differ from the actor string that registered the revision. Signature and digest are re-verified before approval.
+Operator or administrator. Requires a second actor and re-verifies signature/digest before approval.
 
 ### POST `/policies/{policy_id}/revisions/{version}/activate`
-Activates an approved revision for simulation governance only. Signature and digest are re-verified. Activation does not create or execute a response action.
+Operator or administrator. Activates an approved revision for simulation governance only.
 
 ### GET `/policies/{policy_id}/active`
-Returns the currently active simulation-governance revision, if any.
+Returns the active simulation-governance revision, if any.
 
 ### GET `/policies/{policy_id}/history`
-Returns append-only registration, approval, activation, supersession, and rollback history.
+Returns append-only registration, approval, activation, supersession, and rollback history with identity-verification metadata.
 
 ### POST `/policies/{policy_id}/rollback`
-Selects a previously approved older revision, re-verifies its signature/digest, and makes it active for simulation governance. This is policy revision rollback, not privileged-enforcement rollback qualification.
+Operator or administrator. Selects a previously approved older revision after signature/digest verification. This is policy revision rollback, not privileged-enforcement rollback qualification.
 
-See `docs/POLICY_GOVERNANCE.md` for the complete signing, key-management, lifecycle, and safety model.
-
-## Sources
-
-### GET `/sources`
-Lists configured sensors and ingestion sources with health and capabilities.
-
-### POST `/sources`
-Registers/configures a source.
-
-### PATCH `/sources/{source_id}`
-Changes bounded source configuration.
-
-### POST `/sources/{source_id}/test`
-Runs a non-destructive connectivity/capability test.
-
-## Models
-
-### GET `/models`
-Lists configured model providers/models and health. Must never return secrets.
-
-### POST `/models/test`
-Runs a bounded inference health test.
-
-## Configuration
-
-### GET `/configuration`
-Returns non-secret effective configuration and version metadata.
-
-### PATCH `/configuration`
-Updates approved mutable configuration. Secret values use dedicated secret mechanisms and are not returned by read APIs.
-
-## Decisions and actions
-
-### GET `/decisions`
-Returns policy/detection decisions. Phase 1 is observe-only.
-
-### GET `/actions`
-Returns requested or historical response actions.
-
-### POST `/actions/{action_id}/approve`
-Future enforcement workflow. Must enforce role/policy requirements.
-
-### POST `/actions/{action_id}/rollback`
-Future bounded rollback workflow where the adapter supports reversal.
+See `docs/POLICY_GOVERNANCE.md`.
 
 ## Audit
 
 ### GET `/audit`
-Returns paginated audit metadata according to caller authorization.
+Auditor or administrator. Returns recent tamper-evident audit entries.
 
-### GET `/audit/{audit_id}`
-Returns a specific record including chain linkage.
+### GET `/audit/verify`
+Auditor or administrator. Verifies the local hash chain without repairing or rewriting it.
 
-### POST `/audit/verify`
-Verifies a requested chain range or the full local chain. Verification never repairs or rewrites records.
+Human audit actors use authenticated principal identity when local auth is enabled. Engine-generated records remain attributed to their engine/service identity.
 
-## Authentication
+## Live WebSocket
 
-Phase 1 may support a local administrative bootstrap mode for loopback-only evaluation. Before non-loopback or multi-user use, authenticated sessions and role-based authorization are mandatory.
+### WS `/ws/events`
+Streams local security events to authenticated readers.
 
-Planned roles:
+Non-browser clients may send `Authorization: Bearer <token>`. Browser clients use subprotocols:
 
-- `viewer`
-- `analyst`
-- `operator`
-- `administrator`
-- `auditor`
+```text
+privashield
+privashield.bearer.<token>
+```
 
-## Idempotency
+The server selects only `privashield`. Do not log credential-bearing `Sec-WebSocket-Protocol` request headers.
 
-Mutating operations that can be safely retried should accept an idempotency key. Event sources should provide stable source event IDs where possible so duplicate ingestion can be detected.
+## Development compatibility
+
+With `PRIVASHIELD_AUTH_MODE=disabled`, the API preserves loopback development behavior and labels the request context `local-development-unverified`. This mode is not suitable for intentional remote or multi-user exposure.
 
 ## API evolution
 

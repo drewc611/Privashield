@@ -19,8 +19,13 @@ class ResponseStore:
     def capabilities(self) -> ResponseCapabilities:
         return ResponseCapabilities(supported_actions=list(ResponseActionType))
 
-    def create(self, request: ResponseActionCreate) -> ResponseAction:
-        action = ResponseAction(**request.model_dump())
+    def create(
+        self,
+        request: ResponseActionCreate,
+        *,
+        requested_by: str = "operator",
+    ) -> ResponseAction:
+        action = ResponseAction(**request.model_dump(), requested_by=requested_by)
         self._actions[action.id] = action
         return action.model_copy(deep=True)
 

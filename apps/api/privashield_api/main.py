@@ -10,6 +10,10 @@ from . import __version__
 from .ai import OllamaThreatAnalyzer
 from .anomaly import AnomalyEngine
 from .audit import AuditLedger
+from .auth import AuthorizationPolicy, AuthService
+from .auth_middleware import AuthMiddleware
+from .auth_models import AuthMode
+from .auth_repository import InMemoryPrincipalRepository, SqlPrincipalRepository
 from .bus import NatsEventBus, NullEventBus
 from .config import Settings, get_settings
 from .database import build_engine, build_session_factory, initialize_schema
@@ -24,6 +28,7 @@ from .response import ResponseStore
 from .routes.ai import router as ai_router
 from .routes.anomaly import router as anomaly_router
 from .routes.audit import router as audit_router
+from .routes.auth import router as auth_router
 from .routes.dlp import router as dlp_router
 from .routes.events import router as events_router
 from .routes.feedback import router as feedback_router
@@ -66,10 +71,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.event_repository = SqlEventRepository(session_factory)
             app.state.feedback_repository = SqlFeedbackRepository(session_factory)
             app.state.policy_repository = SqlPolicyRepository(session_factory)
+            app.state.principal_repository = SqlPrincipalRepository(session_factory)
         else:
             app.state.event_repository = InMemoryEventRepository()
             app.state.feedback_repository = InMemoryFeedbackRepository()
             app.state.policy_repository = InMemoryPolicyRepository()
+            app.state.principal_repository = InMemoryPrincipalRepository()
+
+        bootstrap_secret = resolved_settings.bootstrap_admin_token
+        bootstrap_token = (
+            bootstrap_secret.get_secret_value() if bootstrap_secret is not None else None
+        )
+        app.state.auth_service = AuthService(
+            app.state.principal_repository,
+            mode=AuthMode(resolved_settings.auth_mode),
+            bootstrap_admin_token=bootstrap_token,
+        )
+        app.state.authorization_policy = AuthorizationPolicy()
 
         public_key_text = resolved_settings.policy_verification_public_key
         verification_key = load_public_key(public_key_text) if public_key_text else None
@@ -99,6 +117,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Auth is added before CORS so browser clients still receive CORS headers on 401/403 responses.
+    app.add_middleware(AuthMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,
@@ -109,6 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (
         health_router,
+        auth_router,
         events_router,
         sensors_router,
         firewall_router,
