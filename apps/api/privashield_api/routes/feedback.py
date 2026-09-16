@@ -6,7 +6,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..audit import AuditLedger
-from ..dependencies import get_audit_ledger, get_event_repository, get_feedback_repository
+from ..auth_models import PrincipalContext
+from ..dependencies import (
+    get_audit_ledger,
+    get_current_principal,
+    get_event_repository,
+    get_feedback_repository,
+)
 from ..feedback_models import (
     AnalystFeedback,
     FeedbackCreate,
@@ -21,6 +27,7 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 FeedbackRepositoryDependency = Annotated[FeedbackRepository, Depends(get_feedback_repository)]
 EventRepositoryDependency = Annotated[EventRepository, Depends(get_event_repository)]
 AuditDependency = Annotated[AuditLedger, Depends(get_audit_ledger)]
+PrincipalDependency = Annotated[PrincipalContext, Depends(get_current_principal)]
 
 
 @router.post("", response_model=AnalystFeedback, status_code=status.HTTP_201_CREATED)
@@ -29,20 +36,28 @@ async def create_feedback(
     feedback_repository: FeedbackRepositoryDependency,
     event_repository: EventRepositoryDependency,
     audit: AuditDependency,
+    principal: PrincipalDependency,
 ) -> AnalystFeedback:
     if request.target_type is FeedbackTargetType.EVENT:
         event = await event_repository.get(request.target_id)
         if event is None:
             raise HTTPException(status_code=404, detail="target event not found")
 
-    feedback = AnalystFeedback(**request.model_dump())
+    feedback = AnalystFeedback(
+        **request.model_dump(),
+        identity_verified=principal.credential_verified,
+    )
     created = await feedback_repository.add(feedback)
+    actor = principal.audit_actor if principal.credential_verified else "analyst-unverified"
     await audit.append(
-        actor="analyst-unverified",
+        actor=actor,
         action="feedback.created",
         resource_type=f"{created.target_type.value}_feedback",
         resource_id=str(created.id),
-        payload=created.model_dump(mode="json"),
+        payload={
+            **created.model_dump(mode="json"),
+            "principal_role": principal.role.value,
+        },
     )
     return created
 
