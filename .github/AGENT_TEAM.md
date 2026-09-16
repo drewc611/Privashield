@@ -21,17 +21,31 @@ Human approval is required before privileged enforcement, changes to AI authorit
 
 ## Daily GitHub operations
 
-The repository-native `Daily Project Health` workflow runs in GitHub Actions and posts results to [Program Board #14](https://github.com/drewc611/Privashield/issues/14).
+PrivaShield uses two separate repository-native daily workflows with different responsibilities.
 
-It performs bounded health work only:
+### Daily Project Health
 
-- Ruff lint
-- Pytest regression suite
-- Python dependency audit
-- open pull-request inventory
-- persistent daily Program Board reporting
+`Daily Project Health` is deterministic status and quality automation. It runs Ruff, Pytest, Python dependency auditing, inventories open pull requests, and reports results to [Program Board #14](https://github.com/drewc611/Privashield/issues/14).
 
 It does not deploy, release, merge, enable packet enforcement, change credentials, or modify production state.
+
+### Daily Autonomous Maintainer
+
+`Daily Autonomous Maintainer` is a GitHub Agentic Workflow defined in `.github/workflows/daily-autonomous-maintainer.md` and executed by its strictly compiled lock workflow.
+
+Each run must first inspect the shared harness, roadmap, architecture/security/privacy guidance, Program Board, open issues and pull requests, and recent CI/security state. It then chooses at most one justified, bounded maintenance objective.
+
+Its write capability is intentionally constrained through GitHub Agentic Workflow safe outputs:
+
+- at most one new maintenance issue when implementation is not appropriate;
+- at most one **draft** pull request for a safe repository improvement;
+- protected-file changes fall back to an issue rather than bypassing governance;
+- the maintainer cannot merge its own pull request;
+- cache memory is used to avoid repeating the same work without new evidence.
+
+The maintainer is explicitly prohibited from autonomously enabling privileged firewall/eBPF enforcement or quarantine, changing AI authority, weakening security controls, handling secrets, expanding sensitive-data retention, changing licensing/repository governance, publishing releases, deploying production infrastructure, rewriting history, or performing destructive operations.
+
+The source workflow and generated `.lock.yml` must remain in sync. Changes to the autonomous maintainer itself require ordinary repository review rather than self-modification by the maintainer.
 
 ## Escalation sequence
 
