@@ -6,6 +6,7 @@ from .audit import AuditLedger
 from .bus import EventBus
 from .feedback_repository import FeedbackRepository
 from .firewall import FirewallController
+from .policy import PolicyService
 from .realtime import EventHub
 from .repository import EventRepository
 from .response import ResponseStore
@@ -50,3 +51,7 @@ def get_anomaly_engine(request: Request) -> AnomalyEngine:
 
 def get_response_store(request: Request) -> ResponseStore:
     return request.app.state.response_store
+
+
+def get_policy_service(request: Request) -> PolicyService:
+    return request.app.state.policy_service
