@@ -18,7 +18,7 @@ permissions:
 
 tools:
   github:
-    toolsets: [all]
+    toolsets: [repos, issues, pull_requests, actions, code_security]
   bash: true
 
 safe-outputs:
@@ -70,7 +70,7 @@ Review:
 - open pull requests and their checks/reviews
 - open issues relevant to the current phase
 - recent CI failures
-- CodeQL or dependency findings visible to the workflow
+- open high/critical CodeQL findings visible to the workflow
 - roadmap status and documentation drift
 - existing tests and implementation before proposing new code
 
