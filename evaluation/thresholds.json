@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "description": "Regression thresholds for the versioned deterministic test corpus. These thresholds are software-quality gates, not real-world efficacy claims.",
+  "overall_min_pass_rate": 1.0,
+  "engine_min_pass_rate": {
+    "dlp": 1.0,
+    "malware": 1.0,
+    "ransomware": 1.0,
+    "anomaly": 1.0,
+    "correlation": 1.0
+  }
+}
