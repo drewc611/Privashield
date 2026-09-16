@@ -47,6 +47,10 @@ services:
       PRIVASHIELD_DATABASE_ENABLED: "true"
       PRIVASHIELD_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-privashield}:${POSTGRES_PASSWORD:-privashield}@postgres:5432/${POSTGRES_DB:-privashield}
       PRIVASHIELD_ENFORCEMENT_MODE: ${PRIVASHIELD_ENFORCEMENT_MODE:-observe}
+      PRIVASHIELD_AUTH_MODE: ${PRIVASHIELD_AUTH_MODE:-disabled}
+      PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN: ${PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN:-}
+      PRIVASHIELD_POLICY_VERIFICATION_PUBLIC_KEY: ${PRIVASHIELD_POLICY_VERIFICATION_PUBLIC_KEY:-}
+      PRIVASHIELD_POLICY_VERIFICATION_KEY_ID: ${PRIVASHIELD_POLICY_VERIFICATION_KEY_ID:-local-v1}
       PRIVASHIELD_NATS_ENABLED: "true"
       PRIVASHIELD_NATS_URL: nats://nats:4222
       PRIVASHIELD_NATS_STREAM: PRIVASHIELD_EVENTS
@@ -99,6 +103,7 @@ services:
       dockerfile: services/file-monitor/Dockerfile
     environment:
       PRIVASHIELD_API_URL: http://api:8000
+      PRIVASHIELD_API_TOKEN: ${PRIVASHIELD_API_TOKEN:-}
       PRIVASHIELD_WATCH_PATH: /watch
     volumes:
       - ${PRIVASHIELD_MONITOR_PATH:-./monitor}:/watch:ro
@@ -125,6 +130,8 @@ services:
     build:
       context: .
       dockerfile: services/collector/Dockerfile
+    environment:
+      PRIVASHIELD_API_TOKEN: ${PRIVASHIELD_API_TOKEN:-}
     command:
       - --source
       - suricata
@@ -163,6 +170,8 @@ services:
     build:
       context: .
       dockerfile: services/collector/Dockerfile
+    environment:
+      PRIVASHIELD_API_TOKEN: ${PRIVASHIELD_API_TOKEN:-}
     command:
       - --source
       - zeek
