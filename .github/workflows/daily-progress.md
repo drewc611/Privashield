@@ -23,7 +23,7 @@ tools:
 
 safe-outputs:
   add-comment:
-    target: 14
+    target: "14"
     max: 1
     hide-older-comments: false
   create-pull-request:
