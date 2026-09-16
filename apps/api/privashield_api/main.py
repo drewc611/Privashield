@@ -15,6 +15,9 @@ from .config import Settings, get_settings
 from .database import build_engine, build_session_factory, initialize_schema
 from .feedback_repository import InMemoryFeedbackRepository, SqlFeedbackRepository
 from .firewall import FirewallController
+from .policy import PolicyService
+from .policy_repository import InMemoryPolicyRepository, SqlPolicyRepository
+from .policy_signing import load_public_key
 from .realtime import EventHub
 from .repository import InMemoryEventRepository, SqlEventRepository
 from .response import ResponseStore
@@ -28,6 +31,7 @@ from .routes.firewall import router as firewall_router
 from .routes.health import router as health_router
 from .routes.incidents import router as incidents_router
 from .routes.malware import router as malware_router
+from .routes.policies import router as policies_router
 from .routes.ransomware import router as ransomware_router
 from .routes.realtime import router as realtime_router
 from .routes.response import router as response_router
@@ -61,9 +65,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.database_engine = engine
             app.state.event_repository = SqlEventRepository(session_factory)
             app.state.feedback_repository = SqlFeedbackRepository(session_factory)
+            app.state.policy_repository = SqlPolicyRepository(session_factory)
         else:
             app.state.event_repository = InMemoryEventRepository()
             app.state.feedback_repository = InMemoryFeedbackRepository()
+            app.state.policy_repository = InMemoryPolicyRepository()
+
+        public_key_text = resolved_settings.policy_verification_public_key
+        verification_key = load_public_key(public_key_text) if public_key_text else None
+        app.state.policy_service = PolicyService(
+            app.state.policy_repository,
+            verification_key=verification_key,
+            key_id=resolved_settings.policy_verification_key_id,
+        )
 
         if resolved_settings.nats_enabled:
             event_bus = NatsEventBus(resolved_settings.nats_url, resolved_settings.nats_stream)
@@ -106,6 +120,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         incidents_router,
         feedback_router,
         response_router,
+        policies_router,
         audit_router,
         realtime_router,
     ):
