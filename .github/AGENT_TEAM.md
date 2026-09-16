@@ -21,17 +21,37 @@ Human approval is required before privileged enforcement, changes to AI authorit
 
 ## Daily GitHub operations
 
-The repository-native `Daily Project Health` workflow runs in GitHub Actions and posts results to [Program Board #14](https://github.com/drewc611/Privashield/issues/14).
+PrivaShield uses two separate repository-native daily workflows.
 
-It performs bounded health work only:
+### Daily Project Health
 
-- Ruff lint
-- Pytest regression suite
-- Python dependency audit
-- open pull-request inventory
-- persistent daily Program Board reporting
+`Daily Project Health` is deterministic quality/status automation. It runs Ruff, Pytest, Python dependency auditing, inventories open pull requests, and reports results to [Program Board #14](https://github.com/drewc611/Privashield/issues/14).
 
 It does not deploy, release, merge, enable packet enforcement, change credentials, or modify production state.
+
+### Daily Agent Progress
+
+`Daily Agent Progress` is the bounded GitHub Copilot implementation loop. It runs after the deterministic health workflow and may produce at most one small candidate per run.
+
+The AI job receives read-only repository permissions plus permission to make Copilot inference requests. It has no repository write token and no shell, GitHub, network, or subagent tools. It may edit only the isolated Actions workspace using file-level tools.
+
+Before anything can leave that workspace, deterministic guards require all of the following:
+
+- no more than 20 changed files
+- changed paths only under approved implementation/test/documentation directories
+- no `.github` or root governance/configuration changes
+- no symbolic links
+- no file deletions
+- patch size no greater than 512 KiB
+- `git diff --check`
+- Ruff passing
+- Pytest passing
+- dashboard JavaScript parse passing
+- Docker Compose validation passing
+
+Only after those checks may a separate non-AI publisher job push a review branch and request a **draft** pull request. The workflow never merges that pull request. If GitHub blocks workflow-created PRs, the validated candidate branch remains for human review and the Program Board records the condition.
+
+The daily progress workflow is not authorized to change privileged enforcement, AI authority, sensitive-data retention, secrets, repository governance, releases, deployment state, or any other human-approval gate in the Agent Harness.
 
 ## Escalation sequence
 
