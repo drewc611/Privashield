@@ -1,4 +1,4 @@
-.PHONY: install test lint run up down
+.PHONY: install test lint benchmark run up down
 
 install:
 	python -m pip install -e ".[dev]"
@@ -8,6 +8,9 @@ test:
 
 lint:
 	ruff check .
+
+benchmark:
+	python scripts/run_detection_benchmarks.py
 
 run:
 	uvicorn privashield_api.main:app --app-dir apps/api --reload --host 127.0.0.1 --port 8000
