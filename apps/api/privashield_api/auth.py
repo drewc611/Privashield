@@ -72,11 +72,15 @@ class AuthService:
     def mode(self) -> AuthMode:
         return self._mode
 
+    @property
+    def bootstrap_configured(self) -> bool:
+        return self._bootstrap_digest is not None
+
     def capabilities(self) -> AuthCapabilities:
         return AuthCapabilities(
             mode=self._mode,
             authentication_required=self._mode is AuthMode.LOCAL,
-            bootstrap_admin_configured=self._bootstrap_digest is not None,
+            bootstrap_admin_configured=self.bootstrap_configured,
         )
 
     def disabled_context(self) -> PrincipalContext:
@@ -171,12 +175,25 @@ class AuthService:
         principal_id: UUID,
         *,
         disabled_by: str,
+        requester_id: UUID | None,
     ) -> PrincipalPublic:
         principal = await self._repository.get(principal_id)
         if principal is None:
             raise PrincipalNotFoundError("principal does not exist")
         if not principal.enabled:
             raise PrincipalConflictError("principal is already disabled")
+        if requester_id is not None and requester_id == principal_id:
+            raise PrincipalConflictError("administrators cannot disable their own active principal")
+
+        if principal.role is Role.ADMINISTRATOR and not self.bootstrap_configured:
+            enabled_admins = [
+                candidate
+                for candidate in await self._repository.list()
+                if candidate.enabled and candidate.role is Role.ADMINISTRATOR
+            ]
+            if len(enabled_admins) <= 1:
+                raise PrincipalConflictError("cannot disable the last enabled administrator")
+
         principal.enabled = False
         principal.disabled_at = datetime.now(UTC)
         principal.disabled_by = disabled_by
@@ -194,8 +211,11 @@ class AuthorizationPolicy:
         if path in {"/", "/api/v1/health"}:
             return None
 
-        if path.startswith("/api/v1/principals") or path == "/api/v1/auth/capabilities":
-            return ADMIN_ROLES if path.startswith("/api/v1/principals") else READ_ROLES
+        if path in {"/api/v1/auth/capabilities", "/api/v1/auth/me"}:
+            return READ_ROLES
+
+        if path.startswith("/api/v1/principals"):
+            return ADMIN_ROLES
 
         if path.startswith("/api/v1/audit"):
             return AUDIT_ROLES
