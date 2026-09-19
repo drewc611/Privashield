@@ -1,8 +1,22 @@
 # Default ownership
 * @drewc611
 
-# Security-sensitive architecture and policy
+# Agent governance and autonomous workflow controls
+/.github/AGENT_HARNESS.md @drewc611
+/.github/AGENT_TEAM.md @drewc611
+/.github/agent-policy.json @drewc611
+/.github/agents/ @drewc611
+/.github/workflows/ @drewc611
+/.github/scripts/validate_agent_governance.py @drewc611
+/.github/copilot-instructions.md @drewc611
+/.github/CODEOWNERS @drewc611
+
+# Repository governance
 /SECURITY.md @drewc611
+/LICENSE @drewc611
+/GOVERNANCE.md @drewc611
+
+# Security-sensitive architecture and policy
 /docs/SECURITY_ARCHITECTURE.md @drewc611
 /docs/THREAT_MODEL.md @drewc611
 /docs/AI_MODEL_GOVERNANCE.md @drewc611
