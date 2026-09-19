@@ -115,7 +115,12 @@ def main() -> None:
     boundary = policy["boundary_stop"]
     if boundary.get("fallback") != "one-issue-and-stop":
         fail("protected-boundary fallback must remain one-issue-and-stop")
-    for key in ("retry_via_alternate_tool", "retry_via_alternate_credential", "retry_via_branch_trick"):
+    boundary_retry_keys = (
+        "retry_via_alternate_tool",
+        "retry_via_alternate_credential",
+        "retry_via_branch_trick",
+    )
+    for key in boundary_retry_keys:
         if boundary.get(key) is not False:
             fail(f"{key} must remain false")
 
