@@ -17,7 +17,27 @@ PrivaShield uses a bounded specialist-agent model for repository work. These age
 
 Every agent must read `.github/AGENT_HARNESS.md` before changing the repository. Agent-specific instructions can narrow the harness but cannot weaken it.
 
-Human approval is required before privileged enforcement, changes to AI authority, expanded sensitive-data retention, licensing or repository-visibility changes, branch/ruleset changes, releases, production deployment, destructive data/history operations, or paid third-party infrastructure.
+Human approval is required before privileged enforcement, changes to AI authority, expanded sensitive-data retention, licensing or repository-visibility changes, branch/ruleset changes, agent-governance changes, releases, production deployment, destructive data/history operations, or paid third-party infrastructure.
+
+## Machine-enforced governance
+
+The written harness is backed by repository controls:
+
+- `.github/agent-policy.json` defines machine-readable autonomous limits.
+- `.github/scripts/validate_agent_governance.py` validates policy invariants, specialist-agent harness references, autonomous-workflow permissions, safe-output limits, compiled workflow presence, and CODEOWNERS coverage.
+- CI runs `Validate agent governance` before the ordinary test suite.
+- `.github/CODEOWNERS` assigns the repository owner to agent governance, workflows, security policy, licensing, and other protected paths.
+- autonomous runs are forbidden from modifying the harness, policy file, validator, agent definitions, workflows, Copilot instructions, or CODEOWNERS.
+
+A governance validation failure is a hard stop. Agents may not relax the validator or policy in the same change that would benefit from the relaxation.
+
+## Autonomous mutation budget
+
+The daily autonomous maintainer is limited to one coherent objective and one output per run: one issue or one draft pull request. The machine policy additionally caps ordinary autonomous changes at 12 files and 500 changed lines by default.
+
+It may not merge, release, deploy, change secrets, enable privileged enforcement, create paid infrastructure, or modify its own authority.
+
+A protected-path or permission failure triggers the stop rule: one issue may be created explaining the desired human-authorized change, then the run ends. The agent may not switch tools, credentials, branch tricks, or alternate APIs to bypass the boundary.
 
 ## Daily GitHub operations
 

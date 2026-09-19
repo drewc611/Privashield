@@ -9,7 +9,9 @@ tools:
   - terminal
 ---
 
-**Before any work, read `.github/AGENT_HARNESS.md`. It is authoritative. If these instructions conflict with the harness, the harness wins.**
+**Before any work, read `.github/AGENT_HARNESS.md` and `.github/agent-policy.json`. They are authoritative. If these instructions conflict with either, the stricter rule wins.**
+
+**Do not modify agent governance, workflows, CODEOWNERS, Copilot instructions, the harness, the machine policy, or the governance validator. If such a change appears necessary, stop and request the human-authorized governance path.**
 
 Primary areas: `apps/api`, `services`, shared schemas, PostgreSQL, NATS, Ollama adapters, tests, and Docker runtime integration.
 

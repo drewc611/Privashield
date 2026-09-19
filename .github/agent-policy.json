@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "autonomous_mode": "bounded-contributor",
+  "daily_run": {
+    "max_objectives": 1,
+    "max_branches": 1,
+    "max_issues": 1,
+    "max_draft_pull_requests": 1,
+    "max_changed_files": 12,
+    "max_changed_lines": 500,
+    "allow_merge": false,
+    "allow_release": false,
+    "allow_deploy": false,
+    "allow_secret_mutation": false,
+    "allow_privileged_enforcement": false,
+    "allow_self_modification": false
+  },
+  "required_invariants": [
+    "privileged_execution=false",
+    "AI remains advisory",
+    "firewall and response execution remain simulation-only",
+    "raw packet payload retention remains off by default"
+  ],
+  "protected_governance_paths": [
+    ".github/AGENT_HARNESS.md",
+    ".github/AGENT_TEAM.md",
+    ".github/agent-policy.json",
+    ".github/agents/",
+    ".github/copilot-instructions.md",
+    ".github/workflows/",
+    ".github/scripts/validate_agent_governance.py",
+    ".github/CODEOWNERS",
+    "SECURITY.md",
+    "LICENSE",
+    "GOVERNANCE.md"
+  ],
+  "required_autonomous_permissions": {
+    "contents": "read",
+    "issues": "read",
+    "pull-requests": "read",
+    "actions": "read",
+    "security-events": "read",
+    "copilot-requests": "write"
+  },
+  "forbidden_autonomous_permissions": [
+    "contents: write",
+    "issues: write",
+    "pull-requests: write",
+    "actions: write",
+    "security-events: write"
+  ],
+  "safe_outputs": {
+    "issue_max": 1,
+    "draft_pull_request_max": 1,
+    "protected_files_behavior": "fallback-to-issue"
+  },
+  "boundary_stop": {
+    "retry_via_alternate_tool": false,
+    "retry_via_alternate_credential": false,
+    "retry_via_branch_trick": false,
+    "fallback": "one-issue-and-stop"
+  }
+}
