@@ -44,6 +44,15 @@ lock: ## Regenerate the hash-pinned lockfiles from pyproject.toml
 	uv pip compile --universal --python-version $(PYTHON_VERSION) --generate-hashes --extra dev \
 		--custom-compile-command "make lock" -o requirements/dev.txt pyproject.toml
 
+.PHONY: hooks
+hooks: ## Install the git pre-commit hooks
+	$(BIN)/pre-commit install
+	@echo "Hooks installed. Run 'make hooks-run' to check the whole tree."
+
+.PHONY: hooks-run
+hooks-run: ## Run every pre-commit hook across the whole tree
+	$(BIN)/pre-commit run --all-files
+
 .PHONY: clean
 clean: ## Remove the virtualenv and build/test caches
 	rm -rf $(VENV) .pytest_cache .ruff_cache .mypy_cache .coverage coverage.xml htmlcov
