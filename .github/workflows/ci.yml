@@ -75,7 +75,7 @@ jobs:
           print(f"Validated {len(data['components'])} SBOM components")
           PY
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: privashield-cyclonedx-sbom
           path: sbom.cdx.json
