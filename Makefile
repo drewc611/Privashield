@@ -90,7 +90,7 @@ benchmark: ## Run the detection regression benchmark against committed threshold
 	$(BIN)/python -m privashield_api.evaluation --enforce-thresholds
 
 .PHONY: audit
-audit: ## Audit dependencies for known vulnerabilities
+audit: ## Audit dependencies for known vulnerabilities (needs network)
 	$(BIN)/pip-audit --progress-spinner off
 
 .PHONY: governance
@@ -108,7 +108,7 @@ check-compose: ## Validate the Compose file
 		|| echo "docker compose unavailable; skipping compose check"
 
 .PHONY: verify
-verify: governance lint typecheck test benchmark check-dashboard check-compose ## Run every CI gate
+verify: governance lint typecheck test benchmark audit check-dashboard check-compose ## Run every CI gate
 	@echo "All gates passed."
 
 # ---------------------------------------------------------------------------

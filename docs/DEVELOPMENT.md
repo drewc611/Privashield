@@ -94,6 +94,7 @@ make install-locked
 | `make typecheck`      | `mypy` over apps, services, scripts and tests          |
 | `make test`           | pytest with branch coverage against the coverage floor |
 | `make benchmark`      | detection regression corpus against committed thresholds |
+| `make audit`          | dependencies against known vulnerabilities (needs network) |
 | `make check-dashboard`| dashboard JavaScript syntax                            |
 | `make check-compose`  | Compose file validity                                  |
 
