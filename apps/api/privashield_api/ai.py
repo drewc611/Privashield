@@ -28,8 +28,7 @@ class OllamaThreatAnalyzer:
         prompt = (
             "You are PrivaShield's local security analysis assistant. Analyze only the supplied "
             "telemetry. Do not claim an action was executed. Return evidence-based findings and "
-            "defensive recommendations. Telemetry:\n"
-            + json.dumps(evidence, sort_keys=True)
+            "defensive recommendations. Telemetry:\n" + json.dumps(evidence, sort_keys=True)
         )
         if question:
             prompt += f"\nAnalyst question: {question}"

@@ -1,3 +1,5 @@
+from typing import cast
+
 from fastapi import HTTPException, Request
 
 from .ai import OllamaThreatAnalyzer
@@ -16,55 +18,55 @@ from .sensors import SensorRegistry
 
 
 def get_event_repository(request: Request) -> EventRepository:
-    return request.app.state.event_repository
+    return cast(EventRepository, request.app.state.event_repository)
 
 
 def get_feedback_repository(request: Request) -> FeedbackRepository:
-    return request.app.state.feedback_repository
+    return cast(FeedbackRepository, request.app.state.feedback_repository)
 
 
 def get_event_hub(request: Request) -> EventHub:
-    return request.app.state.event_hub
+    return cast(EventHub, request.app.state.event_hub)
 
 
 def get_event_bus(request: Request) -> EventBus:
-    return request.app.state.event_bus
+    return cast(EventBus, request.app.state.event_bus)
 
 
 def get_audit_ledger(request: Request) -> AuditLedger:
-    return request.app.state.audit_ledger
+    return cast(AuditLedger, request.app.state.audit_ledger)
 
 
 def get_sensor_registry(request: Request) -> SensorRegistry:
-    return request.app.state.sensor_registry
+    return cast(SensorRegistry, request.app.state.sensor_registry)
 
 
 def get_firewall_controller(request: Request) -> FirewallController:
-    return request.app.state.firewall_controller
+    return cast(FirewallController, request.app.state.firewall_controller)
 
 
 def get_ai_analyzer(request: Request) -> OllamaThreatAnalyzer:
-    return request.app.state.ai_analyzer
+    return cast(OllamaThreatAnalyzer, request.app.state.ai_analyzer)
 
 
 def get_anomaly_engine(request: Request) -> AnomalyEngine:
-    return request.app.state.anomaly_engine
+    return cast(AnomalyEngine, request.app.state.anomaly_engine)
 
 
 def get_response_store(request: Request) -> ResponseStore:
-    return request.app.state.response_store
+    return cast(ResponseStore, request.app.state.response_store)
 
 
 def get_policy_service(request: Request) -> PolicyService:
-    return request.app.state.policy_service
+    return cast(PolicyService, request.app.state.policy_service)
 
 
 def get_auth_service(request: Request) -> AuthService:
-    return request.app.state.auth_service
+    return cast(AuthService, request.app.state.auth_service)
 
 
 def get_current_principal(request: Request) -> PrincipalContext:
     principal = getattr(request.state, "principal", None)
     if principal is None:
         raise HTTPException(status_code=401, detail="authentication required")
-    return principal
+    return cast(PrincipalContext, principal)

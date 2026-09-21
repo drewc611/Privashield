@@ -221,16 +221,20 @@ class AuthorizationPolicy:
             return AUDIT_ROLES
 
         if path.startswith("/api/v1/policies"):
-            return OPERATOR_ROLES if method not in {"GET", "HEAD", "OPTIONS"} else frozenset(
-                {Role.OPERATOR, Role.ADMINISTRATOR, Role.AUDITOR}
+            return (
+                OPERATOR_ROLES
+                if method not in {"GET", "HEAD", "OPTIONS"}
+                else frozenset({Role.OPERATOR, Role.ADMINISTRATOR, Role.AUDITOR})
             )
 
         if path.startswith("/api/v1/firewall") or path.startswith("/api/v1/response"):
             return OPERATOR_ROLES if method not in {"GET", "HEAD", "OPTIONS"} else READ_ROLES
 
         if path.startswith("/api/v1/feedback"):
-            return ANALYST_ROLES if method not in {"GET", "HEAD", "OPTIONS"} else frozenset(
-                {Role.ANALYST, Role.OPERATOR, Role.ADMINISTRATOR, Role.AUDITOR}
+            return (
+                ANALYST_ROLES
+                if method not in {"GET", "HEAD", "OPTIONS"}
+                else frozenset({Role.ANALYST, Role.OPERATOR, Role.ADMINISTRATOR, Role.AUDITOR})
             )
 
         if any(
