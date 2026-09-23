@@ -5,7 +5,7 @@ import json
 import os
 import socket
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_DNS, UUID, uuid5
@@ -51,8 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     hostname = socket.gethostname()
     sensor_id = args.sensor_id or uuid5(NAMESPACE_DNS, f"privashield:{hostname}:{args.source}")
     sensor_name = args.sensor_name or f"{args.source}-{hostname}"

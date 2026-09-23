@@ -8,51 +8,159 @@ on:
 permissions:
   contents: read
 
+# Superseded runs on the same branch are pointless work; main is never cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
-  api:
+  quality:
+    name: Quality gates
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Validate agent governance
         run: python .github/scripts/validate_agent_governance.py
+
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - name: Install
-        run: python -m pip install -e ".[dev]"
+          cache-dependency-path: requirements/dev.txt
+
+      # Installing from the hash-pinned lockfile means CI runs the same bytes
+      # every time; `pip check` then fails if pyproject.toml declares a
+      # dependency the lockfile does not carry (run `make lock` to resolve).
+      - name: Install locked dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements/dev.txt
+          python -m pip install --no-deps -e .
+
+      - name: Check lockfile covers declared dependencies
+        run: python -m pip check
+
+      - name: Format
+        run: ruff format --check .
+
       - name: Lint
         run: ruff check .
+
+      - name: Type check
+        run: mypy
+
       - name: Test
-        run: pytest -q
+        run: pytest -q --cov --cov-report=term-missing --cov-report=xml
+
       - name: Detection regression benchmark
         run: python -m privashield_api.evaluation --enforce-thresholds
+
       - name: Validate dashboard JavaScript
         run: node --check apps/dashboard/app.js
+
       - name: Validate Compose
         run: docker compose config >/dev/null
 
-  sbom:
-    needs: api
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  audit:
+    name: Dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
+          cache-dependency-path: requirements/runtime.txt
+
+      # Audits what actually ships: the pinned runtime set, not the dev tooling.
+      - name: Install locked runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements/runtime.txt
+          python -m pip install --no-deps -e .
+          python -m pip install pip-audit
+
+      - name: Audit for known vulnerabilities
+        run: pip-audit --progress-spinner off
+
+  build-images:
+    name: Build container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The Dockerfiles are shipped artifacts; a broken one should fail the PR
+      # that broke it rather than the next person running `make up`. Driving
+      # this from Compose keeps it in step with the services actually defined.
+      - name: Build images
+        run: docker compose build
+
+      # Each Python service declares a non-root USER. Assert it, so a refactor
+      # that drops the directive cannot quietly ship containers running as root.
+      - name: Verify services run as a non-root user
+        run: |
+          set -euo pipefail
+          for service in api file-monitor suricata-collector; do
+            uid="$(docker compose run --rm --no-deps --entrypoint id "$service" -u)"
+            uid="$(echo "$uid" | tr -d '\r')"
+            if [ "$uid" = "0" ]; then
+              echo "::error::service $service runs as root"
+              exit 1
+            fi
+            echo "$service runs as uid $uid"
+          done
+
+  sbom:
+    name: SBOM
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements/runtime.txt
+
       - name: Install SBOM generator
         run: python -m pip install "cyclonedx-bom==7.4.0"
+
+      # Built from the hash-pinned runtime lockfile so the component list is
+      # determined by the commit rather than by the day the job happened to run.
       - name: Build clean runtime environment
         shell: bash
         run: |
           python -m venv /tmp/privashield-sbom
           /tmp/privashield-sbom/bin/python -m pip install --upgrade pip
-          /tmp/privashield-sbom/bin/python -m pip install .
+          /tmp/privashield-sbom/bin/python -m pip install --require-hashes -r requirements/runtime.txt
+          /tmp/privashield-sbom/bin/python -m pip install --no-deps .
+
       - name: Generate reproducible CycloneDX SBOM
         run: >-
           cyclonedx-py environment /tmp/privashield-sbom/bin/python
@@ -60,6 +168,7 @@ jobs:
           --spec-version 1.6
           --output-format JSON
           --output-file sbom.cdx.json
+
       - name: Validate SBOM
         shell: bash
         run: |
@@ -74,8 +183,9 @@ jobs:
           assert data.get("components"), "SBOM contains no components"
           print(f"Validated {len(data['components'])} SBOM components")
           PY
+
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: privashield-cyclonedx-sbom
           path: sbom.cdx.json

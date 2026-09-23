@@ -7,6 +7,13 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, IPvAnyAddress
 
+FirewallMode = Literal["observe", "simulate"]
+FirewallDecision = Literal["would_allow", "would_drop"]
+PermissionTier = Literal["public", "internal", "privileged"]
+DataSensitivity = Literal["public", "internal", "confidential", "restricted"]
+IdentityEventType = Literal["login", "download", "api", "other"]
+FileClassification = Literal["low-risk", "suspicious", "high-risk"]
+
 
 class EventSource(StrEnum):
     ZEEK = "zeek"
@@ -122,7 +129,7 @@ class AIStatus(BaseModel):
 
 
 class FirewallConfig(BaseModel):
-    mode: Literal["observe", "simulate"] = "observe"
+    mode: FirewallMode = "observe"
     threshold: float = Field(default=0.85, ge=0.0, le=1.0)
 
 
@@ -138,10 +145,10 @@ class FirewallEvaluationRequest(BaseModel):
 
 class FirewallEvaluation(BaseModel):
     decision_id: UUID = Field(default_factory=uuid4)
-    decision: Literal["would_allow", "would_drop"]
+    decision: FirewallDecision
     threshold: float
     risk_score: float
-    mode: Literal["observe", "simulate"]
+    mode: FirewallMode
     enforced: bool = False
     reason: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -174,11 +181,11 @@ class ClassificationMatch(BaseModel):
 
 class DLPClassifyRequest(BaseModel):
     text: str = Field(min_length=1, max_length=200000)
-    permission_tier: Literal["public", "internal", "privileged"] = "internal"
+    permission_tier: PermissionTier = "internal"
 
 
 class DLPClassification(BaseModel):
-    sensitivity: Literal["public", "internal", "confidential", "restricted"]
+    sensitivity: DataSensitivity
     labels: list[str]
     matches: list[ClassificationMatch]
     redacted_text: str
@@ -187,7 +194,7 @@ class DLPClassification(BaseModel):
 class IdentityObservation(BaseModel):
     user_id: str = Field(min_length=1, max_length=256)
     timestamp: datetime
-    event_type: Literal["login", "download", "api", "other"]
+    event_type: IdentityEventType
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     downloaded_bytes: int = Field(default=0, ge=0)
@@ -229,4 +236,4 @@ class FileRiskAssessment(BaseModel):
     risk_score: float = Field(ge=0.0, le=1.0)
     severity: Severity
     indicators: list[str]
-    classification: Literal["low-risk", "suspicious", "high-risk"]
+    classification: FileClassification

@@ -25,8 +25,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.3,<9.0",
+  "pytest>=9.0.3,<10.0",
+  "pytest-cov>=6.0,<8.0",
   "ruff>=0.8,<1.0",
+  "mypy>=1.13,<2.0",
+  "pip-audit>=2.7,<3.0",
+  "pre-commit>=4.0,<5.0",
 ]
 
 [tool.setuptools]
@@ -38,6 +42,12 @@ where = ["apps/api"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["apps/api", "services/collector", "services/file-monitor"]
+addopts = "--strict-markers --strict-config"
+filterwarnings = [
+  "error::DeprecationWarning:privashield_api.*",
+  "error::DeprecationWarning:privashield_collector.*",
+  "error::DeprecationWarning:privashield_file_monitor.*",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -48,3 +58,54 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["privashield_api", "privashield_collector", "privashield_file_monitor"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.coverage.run]
+branch = true
+source = ["privashield_api", "privashield_collector", "privashield_file_monitor"]
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# Two decimals so the coverage floor is compared exactly rather than against a
+# rounded percentage (at precision 0, 81.58% "passes" a fail_under of 82).
+precision = 2
+fail_under = 81.5
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "@(abc\\.)?abstractmethod",
+]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["apps/api", "services", "scripts", "tests"]
+mypy_path = "apps/api:services/collector:services/file-monitor"
+namespace_packages = true
+explicit_package_bases = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# Typing ramp. privashield_api.database converts ORM columns (stored as plain
+# strings) into Pydantic models with narrowed enum/Literal fields. Pydantic
+# validates these at runtime, so they are type-checker gaps rather than defects,
+# but the conversions should be made explicit. Until then the boundary is
+# scoped here rather than weakening arg-type checking repository-wide.
+[[tool.mypy.overrides]]
+module = ["privashield_api.database"]
+disable_error_code = ["arg-type"]

@@ -11,9 +11,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api/v1"
     database_enabled: bool = True
-    database_url: str = (
-        "postgresql+asyncpg://privashield:privashield@localhost:5432/privashield"
-    )
+    database_url: str = "postgresql+asyncpg://privashield:privashield@localhost:5432/privashield"
     enforcement_mode: Literal["observe", "simulate"] = "observe"
     auth_mode: Literal["disabled", "local"] = "disabled"
     bootstrap_admin_token: SecretStr | None = None

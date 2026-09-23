@@ -83,9 +83,7 @@ class InMemoryPolicyRepository:
 
     async def list_history(self, policy_id: UUID) -> list[PolicyHistoryEvent]:
         events = [
-            event.model_copy(deep=True)
-            for event in self._history
-            if event.policy_id == policy_id
+            event.model_copy(deep=True) for event in self._history if event.policy_id == policy_id
         ]
         return sorted(events, key=lambda item: item.created_at)
 
