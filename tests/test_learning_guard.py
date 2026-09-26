@@ -353,3 +353,75 @@ def test_rejected_feedback_is_not_recorded_against_the_window() -> None:
         now=NOW,
     )
     assert subject.window_stats(now=NOW) == {}
+
+
+# --------------------------------------------------------------------------
+# Window hygiene — the window is defined by time, not by insertion order
+# --------------------------------------------------------------------------
+
+
+def test_expired_observations_are_dropped_regardless_of_insertion_order() -> None:
+    """Regression: `_prune` used to popleft while the head was expired.
+
+    `record` takes an explicit `now`, so the deque is not guaranteed to be
+    time-ordered. One out-of-order entry stopped the loop and left every expired
+    observation behind it in the window.
+    """
+    guard = PoisoningGuard()
+    guard.record(label=FeedbackLabel.TRUE_POSITIVE, source="fresh", now=NOW)
+    for index in range(40):
+        guard.record(
+            label=FeedbackLabel.TRUE_POSITIVE, source=f"stale-{index}", now=NOW - timedelta(days=2)
+        )
+
+    assert guard.window_stats(NOW) == {"fresh": 1}, "expired observations still counted"
+    guard.evaluate(label=FeedbackLabel.BENIGN, source="probe", identity_verified=True, now=NOW)
+    assert len(guard._history) == 1, "expired observations were retained after a prune"
+
+
+def test_padding_the_window_with_expired_updates_cannot_widen_the_influence_cap() -> None:
+    """The measured consequence of the bug above, kept as an attack scenario.
+
+    The cap is `same_source / total`, so expired observations padding `total`
+    dilute one source's share. Measured before the fix: 32 poisoned updates got
+    through where correct pruning allows 19.
+    """
+    guard = PoisoningGuard(config=GuardConfig(max_source_share=0.35, min_updates_before_capping=20))
+    guard.record(label=FeedbackLabel.TRUE_POSITIVE, source="analyst-0", now=NOW + timedelta(days=1))
+    for index in range(60):
+        guard.record(
+            label=FeedbackLabel.TRUE_POSITIVE,
+            source=f"analyst-{index % 6}",
+            now=NOW - timedelta(days=2),
+        )
+
+    accepted = 0
+    for _ in range(60):
+        decision = guard.evaluate(
+            label=FeedbackLabel.BENIGN, source="attacker", identity_verified=True, now=NOW
+        )
+        if decision.accepted:
+            accepted += 1
+            guard.record(label=FeedbackLabel.BENIGN, source="attacker", now=NOW)
+
+    assert accepted <= 20, f"padding the window bought {accepted} extra updates"
+
+
+def test_future_dated_observations_are_clamped_to_the_trusted_clock() -> None:
+    # An observation dated ahead of now would outlive its own window.
+    guard = PoisoningGuard()
+    ahead = datetime.now(UTC) + timedelta(days=30)
+    guard.record(label=FeedbackLabel.TRUE_POSITIVE, source="attacker", now=ahead)
+    assert guard._history[0].at <= datetime.now(UTC)
+
+
+def test_reading_the_window_does_not_change_it() -> None:
+    # An observability call must not mutate security-relevant state.
+    guard = PoisoningGuard()
+    for index in range(5):
+        guard.record(
+            label=FeedbackLabel.TRUE_POSITIVE, source=f"a-{index}", now=NOW - timedelta(days=2)
+        )
+
+    assert guard.window_stats(NOW) == {}
+    assert len(guard._history) == 5, "window_stats pruned as a side effect of being read"

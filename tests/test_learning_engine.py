@@ -288,7 +288,9 @@ def test_poisoning_is_visible_in_the_status_snapshot() -> None:
     for _ in range(30):
         detector.learn(MALICIOUS, feedback(), source="suspicious", now=NOW)
 
-    sources = detector.status()["window_sources"]
+    # Read the window against the same clock the writes used; otherwise this
+    # test passes for 24 hours and then starts failing on its own.
+    sources = detector.status(NOW)["window_sources"]
     assert sources["suspicious"] == 30
     # An operator can see one source dominating without reading the weights.
     assert max(sources, key=lambda name: sources[name]) == "suspicious"

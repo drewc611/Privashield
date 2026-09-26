@@ -78,6 +78,22 @@ Feedback reaches the model only if it passes every check:
 A refusal comes back as a `RejectionReason`, not a silent no-op, so the API can
 tell an analyst why their feedback did not apply.
 
+The window is defined by time, never by insertion order. Observations are
+filtered against the cutoff rather than popped off the front, because `record`
+accepts an explicit timestamp and so cannot promise the history is sorted; a
+single out-of-order entry used to halt pruning and leave every expired
+observation behind it in the window. That matters because the cap is
+`same_source / total`, so expired observations padding `total` dilute one
+source's measured share. Measured against a 60-update window with one
+out-of-order entry, an attacker landed 32 poisoned updates where correct
+pruning allows 19.
+
+Two consequences of that follow. A timestamp ahead of the trusted clock is
+clamped back to it, since an observation dated into the future would outlive its
+own window; clamping can only make an observation expire sooner, which tightens
+the cap rather than loosening it. And `window_stats` is a pure read: an
+observability call must not change what the guard decides next.
+
 ## Canary and rollback
 
 Rate limits are not the defense. They slow an attacker down; measurement in

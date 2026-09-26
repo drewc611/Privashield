@@ -280,8 +280,13 @@ class AdaptiveDetector:
 
     # -- observability ----------------------------------------------------
 
-    def status(self) -> dict[str, Any]:
-        """A snapshot suitable for an operator endpoint or health check."""
+    def status(self, now: datetime | None = None) -> dict[str, Any]:
+        """A snapshot suitable for an operator endpoint or health check.
+
+        `now` exists so a caller that supplies explicit timestamps to `learn`
+        can read the window against the same clock. Left out, the window is read
+        against wall time, which is what an operator endpoint wants.
+        """
         top: list[dict[str, Any]] = []
         if isinstance(self.model, OnlineLogisticRegression):
             top = [
@@ -296,7 +301,7 @@ class AdaptiveDetector:
             "canary_enabled": bool(self.canary_corpus),
             "canary_interval": self.canary_interval,
             "has_trusted_state": self.trusted_model_state is not None,
-            "window_sources": self.guard.window_stats(),
+            "window_sources": self.guard.window_stats(now),
             "top_features": top,
             "advisory_only": True,
         }

@@ -161,9 +161,29 @@ class PoisoningGuard:
     # -- admission --------------------------------------------------------
 
     def _prune(self, now: datetime) -> None:
+        """Drop every observation older than the window.
+
+        This filters the whole deque rather than popping from the left. The
+        popleft form assumed `_history` was sorted by time, which `record` does
+        not guarantee because it accepts an explicit `now`. A single
+        out-of-order entry stopped the loop early and left every expired
+        observation behind it in the window. That is not cosmetic: the influence
+        cap is `same_source / total`, so expired observations padding `total`
+        dilute a single source's measured share. Measured against a 60-update
+        window with one out-of-order entry, an attacker landed 32 poisoned
+        updates where correct pruning allowed 19.
+        """
         cutoff = now - self.config.window
-        while self._history and self._history[0].at < cutoff:
-            self._history.popleft()
+        if self._history and self._history[0].at >= cutoff:
+            # Common case: nothing has expired, so do not rebuild.
+            if all(item.at >= cutoff for item in self._history):
+                return
+        self._history = deque(item for item in self._history if item.at >= cutoff)
+
+    def _live(self, now: datetime) -> list[_Observation]:
+        """Observations inside the window, without mutating anything."""
+        cutoff = now - self.config.window
+        return [item for item in self._history if item.at >= cutoff]
 
     def evaluate(
         self,
@@ -230,14 +250,27 @@ class PoisoningGuard:
         return GuardDecision(accepted=True, weight=weight)
 
     def record(self, *, label: FeedbackLabel, source: str, now: datetime | None = None) -> None:
-        """Note an accepted update so it counts toward the window limits."""
-        self._history.append(_Observation(at=now or datetime.now(UTC), source=source, label=label))
+        """Note an accepted update so it counts toward the window limits.
+
+        A timestamp ahead of the trusted clock is clamped back to it. An
+        observation dated into the future would outlive its window, and a window
+        holding observations that should have expired is exactly what dilutes
+        the per-source influence share. Clamping is the safe direction: it can
+        only make an observation expire sooner, which tightens the cap rather
+        than loosening it.
+        """
+        trusted = datetime.now(UTC)
+        at = min(now, trusted) if now is not None else trusted
+        self._history.append(_Observation(at=at, source=source, label=label))
 
     def window_stats(self, now: datetime | None = None) -> dict[str, int]:
-        """Update counts per source in the current window, for observability."""
-        self._prune(now or datetime.now(UTC))
+        """Update counts per source in the current window, for observability.
+
+        Read-only. Reading a status page must not change what the guard will
+        decide next, and this used to prune as a side effect.
+        """
         counts: dict[str, int] = {}
-        for item in self._history:
+        for item in self._live(now or datetime.now(UTC)):
             counts[item.source] = counts.get(item.source, 0) + 1
         return dict(sorted(counts.items()))
 
