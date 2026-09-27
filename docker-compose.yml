@@ -4,7 +4,8 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-privashield}
       POSTGRES_USER: ${POSTGRES_USER:-privashield}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-privashield}
+      # No default: compose stops until .env sets it (cp .env.example .env).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (cp .env.example .env)}
     volumes:
       - privashield-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -45,9 +46,11 @@ services:
       PRIVASHIELD_ENVIRONMENT: ${PRIVASHIELD_ENVIRONMENT:-development}
       PRIVASHIELD_LOG_LEVEL: ${PRIVASHIELD_LOG_LEVEL:-INFO}
       PRIVASHIELD_DATABASE_ENABLED: "true"
-      PRIVASHIELD_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-privashield}:${POSTGRES_PASSWORD:-privashield}@postgres:5432/${POSTGRES_DB:-privashield}
+      PRIVASHIELD_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-privashield}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (cp .env.example .env)}@postgres:5432/${POSTGRES_DB:-privashield}
       PRIVASHIELD_ENFORCEMENT_MODE: ${PRIVASHIELD_ENFORCEMENT_MODE:-observe}
-      PRIVASHIELD_AUTH_MODE: ${PRIVASHIELD_AUTH_MODE:-disabled}
+      # Documented loopback-only development default (README "Authentication"). Set
+      # PRIVASHIELD_AUTH_MODE=local before any non-loopback or multi-user exposure.
+      PRIVASHIELD_AUTH_MODE: ${PRIVASHIELD_AUTH_MODE:-disabled} # allow-placeholder loopback dev default, see README
       PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN: ${PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN:-}
       PRIVASHIELD_POLICY_VERIFICATION_PUBLIC_KEY: ${PRIVASHIELD_POLICY_VERIFICATION_PUBLIC_KEY:-}
       PRIVASHIELD_POLICY_VERIFICATION_KEY_ID: ${PRIVASHIELD_POLICY_VERIFICATION_KEY_ID:-local-v1}
