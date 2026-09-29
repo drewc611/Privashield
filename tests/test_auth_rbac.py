@@ -21,7 +21,7 @@ def client(*, auth_mode: str = "local", bootstrap: str | None = BOOTSTRAP) -> Te
                 nats_enabled=False,
                 ollama_enabled=False,
                 audit_path=None,
-                environment="test",
+                environment="development" if auth_mode == "disabled" else "test",
                 auth_mode=auth_mode,
                 bootstrap_admin_token=bootstrap,
             )

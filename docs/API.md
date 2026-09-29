@@ -6,7 +6,8 @@ Base path: `/api/v1`
 
 - JSON request/response bodies unless otherwise noted
 - UTC timestamps in RFC 3339 format
-- bearer authentication when `PRIVASHIELD_AUTH_MODE=local`
+- bearer authentication when `PRIVASHIELD_AUTH_MODE=local` (the default)
+- 413 for request bodies over `PRIVASHIELD_MAX_REQUEST_BODY_BYTES` (default 1 MiB); 422 for `metadata` over 16 KiB serialized
 - 401 for missing/invalid credentials and 403 for insufficient role authority
 - UUID domain identifiers
 - server-side RBAC; dashboard visibility is not authorization
@@ -203,7 +204,7 @@ The server selects only `privashield`. Do not log credential-bearing `Sec-WebSoc
 
 ## Development compatibility
 
-With `PRIVASHIELD_AUTH_MODE=disabled`, the API preserves loopback development behavior and labels the request context `local-development-unverified`. This mode is not suitable for intentional remote or multi-user exposure.
+With `PRIVASHIELD_AUTH_MODE=disabled`, which the API only accepts when `PRIVASHIELD_ENVIRONMENT=development`, requests run as an unverified administrator and the request context is labelled `local-development-unverified`. This mode is not suitable for intentional remote or multi-user exposure.
 
 ## API evolution
 

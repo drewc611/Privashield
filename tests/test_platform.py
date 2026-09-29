@@ -16,7 +16,8 @@ def client() -> TestClient:
                 ollama_enabled=False,
                 audit_path=None,
                 enforcement_mode="observe",
-                environment="test",
+                environment="development",
+                auth_mode="disabled",
             )
         )
     )

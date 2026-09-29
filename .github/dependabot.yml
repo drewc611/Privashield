@@ -21,3 +21,27 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
+  - package-ecosystem: docker
+    directories:
+      - "/apps/api"
+      - "/apps/dashboard"
+      - "/services/collector"
+      - "/services/file-monitor"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:45"
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies

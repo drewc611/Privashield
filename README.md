@@ -45,7 +45,7 @@ PrivaShield currently detects, scores, correlates, simulates, and orchestrates d
 | **Privacy-minimized** | Collectors keep security-relevant features while sensitive application metadata is opt-in. |
 | **AI-assisted, not AI-controlled** | Local models summarize and recommend. They cannot directly mutate host or network state. |
 | **Defense in depth** | Network sensing, WAF, file monitoring, DLP, anomaly scoring, signed policies, and response workflows live behind one control plane. |
-| **Verified local access** | Opt-in local bearer authentication enforces server-side viewer, analyst, operator, administrator, and auditor roles. |
+| **Verified local access** | Local bearer authentication is on by default and enforces server-side viewer, analyst, operator, administrator, and auditor roles. |
 | **Auditable decisions** | Human control-plane actions use verified principal attribution in local-auth mode and produce tamper-evident audit records. |
 | **Approval-gated response** | Response workflows require explicit approval and remain simulation-only today. |
 | **Open architecture** | Sensors, models, policy engines, and future enforcement components are modular. |
@@ -95,7 +95,7 @@ PrivaShield currently detects, scores, correlates, simulates, and orchestrates d
 
 ### Identity and audit
 
-- Opt-in local bearer authentication
+- Local bearer authentication, on by default
 - Persistent local principals with SHA-256 token-digest storage only
 - Five server-enforced RBAC roles: viewer, analyst, operator, administrator, auditor
 - One-time token issuance and immediate rotation/disable invalidation
@@ -308,10 +308,17 @@ All agents must follow the shared [Agent Harness](.github/AGENT_HARNESS.md). The
 git clone https://github.com/drewc611/Privashield.git
 cd Privashield
 cp .env.example .env
+# Fill in the two blank secrets in .env. Generate each with:
+#   openssl rand -hex 32     # PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN
+#   openssl rand -hex 24     # POSTGRES_PASSWORD
 docker compose up --build
 ```
 
-The default remains loopback-only development with authentication disabled for compatibility. Before intentional non-loopback or multi-user exposure, enable `PRIVASHIELD_AUTH_MODE=local`, establish durable administrator principals, and follow [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Compose stops with an error until both values are set. Authentication is on (`PRIVASHIELD_AUTH_MODE=local`): sign in to the dashboard with the bootstrap token, create durable administrator principals, and follow [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+The API refuses to start with `PRIVASHIELD_AUTH_MODE=disabled` unless `PRIVASHIELD_ENVIRONMENT=development` is also set. That pairing is only for a loopback-only development host, because every request is then an unverified administrator.
+
+Running the API outside compose (`make run`) needs `PRIVASHIELD_DATABASE_URL` (a PostgreSQL URL) or `PRIVASHIELD_DATABASE_ENABLED=false`; there is no built-in database credential.
 
 ### Development checks
 

@@ -22,7 +22,15 @@ Privileged enforcement is not part of this topology.
 
 Compose publishes the API and WAF/dashboard on loopback by default. PostgreSQL, NATS, Ollama, and sensor-internal services are not published to untrusted interfaces.
 
-Loopback-only development may use `PRIVASHIELD_AUTH_MODE=disabled`. Before intentional non-loopback or multi-user exposure, enable local authentication and deploy TLS/appropriate network controls. Local RBAC does not replace TLS.
+Authentication is on by default (`PRIVASHIELD_AUTH_MODE=local`). Loopback-only development may set `PRIVASHIELD_AUTH_MODE=disabled` together with `PRIVASHIELD_ENVIRONMENT=development`; the API refuses to start with the first setting alone. Before intentional non-loopback or multi-user exposure, keep local authentication on and deploy TLS/appropriate network controls. Local RBAC does not replace TLS.
+
+Compose requires `POSTGRES_PASSWORD` and `PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN` and stops when either is empty. Third-party images are pinned by digest and Python dependencies by `requirements.lock`; Dependabot proposes updates to both. Regenerate the lock after changing dependencies in `pyproject.toml`:
+
+```bash
+uv pip compile pyproject.toml --python-version 3.12 --universal --generate-hashes -o requirements.lock
+```
+
+The API rejects request bodies larger than `PRIVASHIELD_MAX_REQUEST_BODY_BYTES` (default 1 MiB) with 413, and event and response-action `metadata` larger than 16 KiB serialized with 422.
 
 ## Local authentication bootstrap
 

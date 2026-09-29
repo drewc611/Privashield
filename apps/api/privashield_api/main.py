@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -19,6 +20,7 @@ from .config import Settings, get_settings
 from .database import build_engine, build_session_factory, initialize_schema
 from .feedback_repository import InMemoryFeedbackRepository, SqlFeedbackRepository
 from .firewall import FirewallController
+from .limits import BodySizeLimitMiddleware
 from .policy import PolicyService
 from .policy_repository import InMemoryPolicyRepository, SqlPolicyRepository
 from .policy_signing import load_public_key
@@ -43,6 +45,8 @@ from .routes.response import router as response_router
 from .routes.sensors import router as sensors_router
 from .sensors import SensorRegistry
 
+logger = logging.getLogger(__name__)
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
@@ -63,8 +67,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             resolved_settings.ollama_enabled,
         )
 
+        if resolved_settings.auth_mode == "disabled":
+            logger.warning(
+                "Authentication is disabled: every request is treated as an unverified "
+                "administrator. Use this only on a loopback-only development host."
+            )
+
         if resolved_settings.database_enabled:
-            engine = build_engine(resolved_settings.database_url)
+            if resolved_settings.database_url is None:
+                raise RuntimeError(
+                    "PRIVASHIELD_DATABASE_URL is required when the database is enabled. "
+                    "Set it in the environment or .env, or set PRIVASHIELD_DATABASE_ENABLED=false."
+                )
+            engine = build_engine(resolved_settings.database_url.get_secret_value())
             await initialize_schema(engine)
             session_factory = build_session_factory(engine)
             app.state.database_engine = engine
@@ -119,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Auth is added before CORS so browser clients still receive CORS headers on 401/403 responses.
     app.add_middleware(AuthMiddleware)
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=resolved_settings.max_request_body_bytes)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,

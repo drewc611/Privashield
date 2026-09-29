@@ -12,7 +12,8 @@ def client() -> TestClient:
                 nats_enabled=False,
                 ollama_enabled=False,
                 audit_path=None,
-                environment="test",
+                environment="development",
+                auth_mode="disabled",
             )
         )
     )
