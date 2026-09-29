@@ -11,6 +11,20 @@ updates:
     labels:
       - dependencies
       - security
+  # The hash-pinned lockfiles are what CI installs, so they need updates of
+  # their own; pyproject.toml above only carries version ranges.
+  - package-ecosystem: pip
+    directory: "/requirements"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:05"
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security
+
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

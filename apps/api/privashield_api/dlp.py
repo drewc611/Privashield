@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .schemas import ClassificationMatch, DLPClassification
+from .schemas import ClassificationMatch, DataSensitivity, DLPClassification
 
 
 @dataclass(frozen=True)
@@ -11,7 +11,7 @@ class PatternDefinition:
     name: str
     pattern: re.Pattern[str]
     confidence: float
-    sensitivity: str
+    sensitivity: DataSensitivity
 
 
 PATTERNS = (
@@ -41,9 +41,7 @@ PATTERNS = (
     ),
     PatternDefinition(
         "credential",
-        re.compile(
-            r"(?i)\b(?:password|passwd|api[_-]?key|secret|token)\s*[:=]\s*[^\s,;]{6,}"
-        ),
+        re.compile(r"(?i)\b(?:password|passwd|api[_-]?key|secret|token)\s*[:=]\s*[^\s,;]{6,}"),
         0.9,
         "restricted",
     ),
@@ -62,7 +60,12 @@ PATTERNS = (
 )
 
 CREDIT_CARD = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
-SENSITIVITY_ORDER = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
+SENSITIVITY_ORDER: dict[DataSensitivity, int] = {
+    "public": 0,
+    "internal": 1,
+    "confidential": 2,
+    "restricted": 3,
+}
 
 
 def _luhn(candidate: str) -> bool:
@@ -82,7 +85,7 @@ def _luhn(candidate: str) -> bool:
 
 def classify_text(text: str, permission_tier: str) -> DLPClassification:
     matches: list[ClassificationMatch] = []
-    match_sensitivity: list[tuple[ClassificationMatch, str]] = []
+    match_sensitivity: list[tuple[ClassificationMatch, DataSensitivity]] = []
     for definition in PATTERNS:
         for match in definition.pattern.finditer(text):
             item = ClassificationMatch(
@@ -104,7 +107,7 @@ def classify_text(text: str, permission_tier: str) -> DLPClassification:
             matches.append(item)
             match_sensitivity.append((item, "restricted"))
 
-    sensitivity = "public"
+    sensitivity: DataSensitivity = "public"
     for _, level in match_sensitivity:
         if SENSITIVITY_ORDER[level] > SENSITIVITY_ORDER[sensitivity]:
             sensitivity = level

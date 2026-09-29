@@ -93,9 +93,7 @@ def _component_indicators(events: list[SecurityEvent]) -> list[SharedIndicator]:
     for indicator_type in ("correlation_id", "asset_id", "user_id", "ip"):
         for value, count in sorted(values[indicator_type].items()):
             if count >= 2:
-                indicators.append(
-                    SharedIndicator(indicator_type=indicator_type, value=value)  # type: ignore[arg-type]
-                )
+                indicators.append(SharedIndicator(indicator_type=indicator_type, value=value))
     return indicators
 
 
@@ -122,9 +120,7 @@ def _incident_score(
 def _incident_reasons(
     events: list[SecurityEvent], indicators: list[SharedIndicator], source_count: int
 ) -> list[str]:
-    reasons = [
-        f"{len(events)} related events observed across {source_count} distinct sources"
-    ]
+    reasons = [f"{len(events)} related events observed across {source_count} distinct sources"]
     type_labels = {
         "correlation_id": "existing correlation identifier",
         "asset_id": "asset identifier",

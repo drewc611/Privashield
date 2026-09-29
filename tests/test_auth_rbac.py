@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from starlette.websockets import WebSocketDisconnect
 
 from privashield_api.config import Settings
@@ -13,7 +15,11 @@ from privashield_api.main import create_app
 BOOTSTRAP = "test-bootstrap-admin-token-with-high-entropy-0123456789"
 
 
-def client(*, auth_mode: str = "local", bootstrap: str | None = BOOTSTRAP) -> TestClient:
+def client(
+    *,
+    auth_mode: Literal["disabled", "local"] = "local",
+    bootstrap: str | None = BOOTSTRAP,
+) -> TestClient:
     return TestClient(
         create_app(
             Settings(
@@ -23,7 +29,7 @@ def client(*, auth_mode: str = "local", bootstrap: str | None = BOOTSTRAP) -> Te
                 audit_path=None,
                 environment="test",
                 auth_mode=auth_mode,
-                bootstrap_admin_token=bootstrap,
+                bootstrap_admin_token=SecretStr(bootstrap) if bootstrap else None,
             )
         )
     )

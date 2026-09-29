@@ -41,9 +41,7 @@ def _evaluate_dlp(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
         actual = classify_text(request["text"], request["permission_tier"])
         errors: list[str] = []
         if actual.sensitivity != expected["sensitivity"]:
-            errors.append(
-                f"sensitivity {actual.sensitivity!r} != {expected['sensitivity']!r}"
-            )
+            errors.append(f"sensitivity {actual.sensitivity!r} != {expected['sensitivity']!r}")
         missing_labels = set(expected.get("labels_contains", [])) - set(actual.labels)
         if missing_labels:
             errors.append(f"missing labels: {sorted(missing_labels)}")
@@ -114,9 +112,7 @@ def _evaluate_correlation(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
         errors: list[str] = []
         expected_count = int(expected["incident_count"])
         if len(actual.incidents) != expected_count:
-            errors.append(
-                f"incident count {len(actual.incidents)} != expected {expected_count}"
-            )
+            errors.append(f"incident count {len(actual.incidents)} != expected {expected_count}")
         if actual.incidents and expected_count:
             incident = actual.incidents[0]
             minimum_sources = expected.get("min_source_count")
@@ -169,9 +165,7 @@ def evaluate_corpus(corpus: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def threshold_violations(
-    report: dict[str, Any], thresholds: dict[str, Any]
-) -> list[str]:
+def threshold_violations(report: dict[str, Any], thresholds: dict[str, Any]) -> list[str]:
     violations: list[str] = []
     overall_minimum = float(thresholds.get("overall_min_pass_rate", 0.0))
     if float(report["pass_rate"]) < overall_minimum:
@@ -195,19 +189,20 @@ def threshold_violations(
 
 
 def load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return data
 
 
 def _human_output(report: dict[str, Any], violations: list[str]) -> str:
     lines = [
         "PrivaShield detection regression benchmark",
-        f"Cases: {report['passed']}/{report['total_cases']} passed "
-        f"({report['pass_rate']:.1%})",
+        f"Cases: {report['passed']}/{report['total_cases']} passed ({report['pass_rate']:.1%})",
     ]
     for engine_name, summary in report["engines"].items():
         lines.append(
-            f"- {engine_name}: {summary['passed']}/{summary['cases']} "
-            f"({summary['pass_rate']:.1%})"
+            f"- {engine_name}: {summary['passed']}/{summary['cases']} ({summary['pass_rate']:.1%})"
         )
         for failure in summary["failures"]:
             lines.append(f"  - FAIL {failure['id']}: {'; '.join(failure['errors'])}")

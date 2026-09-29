@@ -25,12 +25,24 @@ For substantial changes, open an issue or architecture discussion before impleme
 - Never commit secrets, real customer telemetry, or sensitive packet captures.
 - Preserve backward compatibility for stable APIs unless a documented breaking change is approved.
 
+## Local setup
+
+```sh
+make install    # create .venv on Python 3.12 and install with dev tooling
+make hooks      # install the git pre-commit hooks
+make verify     # run every gate CI runs
+```
+
+The hooks handle formatting, linting and type checking as you commit. If you
+change a dependency in `pyproject.toml`, run `make lock` to regenerate the
+hash-pinned lockfiles; CI fails when they drift.
+
 ## Branch and pull request workflow
 
 1. Create a focused branch from `main`.
 2. Make the smallest coherent change.
 3. Add or update tests and documentation.
-4. Run formatting, linting, type checks, unit tests, and relevant integration tests locally.
+4. Run `make verify` locally; it runs every gate CI runs.
 5. Open a pull request using the repository template.
 6. Address review comments and keep the branch current.
 7. Use squash merge unless the maintainers choose otherwise for a specific change.

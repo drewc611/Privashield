@@ -30,3 +30,14 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Local virtualenv
+.venv/
+
+# Coverage and tool caches
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/

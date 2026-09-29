@@ -47,7 +47,7 @@ class AuditLedger:
             timestamp = datetime.now(UTC)
             previous_hash = self._entries[-1].entry_hash if self._entries else ZERO_HASH
             payload_hash = _digest(payload)
-            material = {
+            material: dict[str, Any] = {
                 "sequence": sequence,
                 "timestamp": timestamp.isoformat(),
                 "actor": actor,

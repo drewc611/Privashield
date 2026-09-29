@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -31,7 +32,7 @@ def ingest(
     src_ip: str | None = None,
     dst_ip: str | None = None,
     severity: str = "medium",
-) -> dict:
+) -> dict[str, Any]:
     payload = {
         "timestamp": timestamp.isoformat(),
         "source": source,
@@ -45,7 +46,8 @@ def ingest(
     }
     response = api.post("/api/v1/events/ingest", json=payload)
     assert response.status_code == 201
-    return response.json()
+    body: dict[str, Any] = response.json()
+    return body
 
 
 def test_candidates_correlate_shared_asset_across_sources() -> None:
@@ -164,9 +166,10 @@ def test_selected_correlation_id_is_stable_across_input_order() -> None:
         )
         assert forward.status_code == 200
         assert reverse.status_code == 200
-        assert forward.json()["incidents"][0]["correlation_id"] == reverse.json()["incidents"][0][
-            "correlation_id"
-        ]
+        assert (
+            forward.json()["incidents"][0]["correlation_id"]
+            == reverse.json()["incidents"][0]["correlation_id"]
+        )
 
 
 def test_selected_correlation_rejects_missing_event() -> None:

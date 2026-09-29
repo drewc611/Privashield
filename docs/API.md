@@ -92,6 +92,7 @@ The local AI layer is advisory only and has no enforcement authority.
 Implemented analysis/detection route groups include:
 
 - `/ai`
+- `/learning`
 - `/dlp`
 - `/anomaly`
 - `/ransomware`
@@ -110,6 +111,22 @@ Analyst, operator, administrator, or auditor. Lists feedback.
 
 ### GET `/feedback/stats`
 Returns feedback distribution statistics.
+
+Creating feedback also offers it to the adaptive detector when learning is switched on and actually effective (see `/learning/status`). Whether it trains is the guard's decision, not the caller's, and both outcomes are recorded in the audit ledger as `learning.update.applied` or `learning.update.refused`. A refusal is not an error and does not change the 201 response: the label was still stored.
+
+## Adaptive detection
+
+Learned scores are advisory and carry no enforcement authority (ADR-0001). There is deliberately no endpoint that trains the model — feedback is the only path in, so every update passes the poisoning guard.
+
+### GET `/learning/status`
+Authenticated readers. Operator view of the detector: model kind, update count, freeze state and reason, whether the canary is armed, the current baseline, per-source window counts and the highest-weighted features.
+
+Two fields answer different questions and routinely disagree. `learning_enabled` is what configuration asks for; `learning_effective` is whether feedback can actually reach the model right now, with `learning_blocked_reason` naming the obstacle. They come apart most often because authentication is disabled, in which case no analyst is a verified principal and the guard weights every update at zero — so learning would appear switched on and silently do nothing.
+
+`state_durable` reports whether learned state survives a restart; false means the model is in-memory only. `max_source_share` and `active_sources` make `window_sources` interpretable: a source holds roughly 1/`active_sources` of the window, so a small team can sit permanently against the cap and stop training with no other symptom.
+
+### GET `/learning/score/{event_id}`
+Authenticated readers. Returns the learned score for one stored event, its confidence, and for the linear model the per-feature contributions behind it. Returns 503 when scoring is switched off and 404 when the event is unknown.
 
 ## Firewall simulation
 
