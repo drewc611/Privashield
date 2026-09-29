@@ -1,11 +1,12 @@
 import json
+from collections.abc import Callable
+from typing import Any
 
 from fastapi.testclient import TestClient
 
 from privashield_api.config import Settings
 from privashield_api.limits import MAX_METADATA_BYTES
 from privashield_api.main import create_app
-from tests.test_api import sample_event
 
 
 def build_client(max_bytes: int = 1_048_576) -> TestClient:
@@ -22,9 +23,9 @@ def build_client(max_bytes: int = 1_048_576) -> TestClient:
     return TestClient(create_app(settings))
 
 
-def test_request_within_limit_is_accepted() -> None:
+def test_request_within_limit_is_accepted(make_event: Callable[[], dict[str, Any]]) -> None:
     with build_client() as client:
-        response = client.post("/api/v1/events/ingest", json=sample_event())
+        response = client.post("/api/v1/events/ingest", json=make_event())
         assert response.status_code == 201
 
 
@@ -53,8 +54,10 @@ def test_streamed_oversized_body_is_rejected_with_413() -> None:
         assert response.status_code == 413
 
 
-def test_oversized_metadata_is_rejected_with_422() -> None:
-    event = sample_event()
+def test_oversized_metadata_is_rejected_with_422(
+    make_event: Callable[[], dict[str, Any]],
+) -> None:
+    event = make_event()
     event["metadata"] = {"blob": "a" * (MAX_METADATA_BYTES + 1)}
     with build_client() as client:
         response = client.post("/api/v1/events/ingest", json=event)
@@ -62,8 +65,8 @@ def test_oversized_metadata_is_rejected_with_422() -> None:
         assert "metadata" in json.dumps(response.json())
 
 
-def test_metadata_at_the_limit_is_accepted() -> None:
-    event = sample_event()
+def test_metadata_at_the_limit_is_accepted(make_event: Callable[[], dict[str, Any]]) -> None:
+    event = make_event()
     overhead = len(json.dumps({"blob": ""}))
     event["metadata"] = {"blob": "a" * (MAX_METADATA_BYTES - overhead)}
     with build_client() as client:
