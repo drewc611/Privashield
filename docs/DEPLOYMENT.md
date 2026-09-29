@@ -30,6 +30,8 @@ Compose requires `POSTGRES_PASSWORD` and `PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN` and
 uv pip compile pyproject.toml --python-version 3.12 --universal --generate-hashes -o requirements.lock
 ```
 
+The API rejects request bodies larger than `PRIVASHIELD_MAX_REQUEST_BODY_BYTES` (default 1 MiB) with 413, and event and response-action `metadata` larger than 16 KiB serialized with 422.
+
 ## Local authentication bootstrap
 
 Set a high-entropy bootstrap secret through your deployment secret mechanism:

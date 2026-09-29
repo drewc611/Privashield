@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, IPvAnyAddress
+
+from .limits import BoundedMetadata
 
 
 class EventSource(StrEnum):
@@ -52,7 +54,7 @@ class SecurityEvent(BaseModel):
     process: str | None = Field(default=None, max_length=512)
     summary: str = Field(min_length=1, max_length=4096)
     raw_ref: UUID | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: BoundedMetadata = Field(default_factory=dict)
     correlation_id: UUID | None = None
     schema_version: str = "1.0"
 

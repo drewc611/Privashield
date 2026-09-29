@@ -20,6 +20,7 @@ from .config import Settings, get_settings
 from .database import build_engine, build_session_factory, initialize_schema
 from .feedback_repository import InMemoryFeedbackRepository, SqlFeedbackRepository
 from .firewall import FirewallController
+from .limits import BodySizeLimitMiddleware
 from .policy import PolicyService
 from .policy_repository import InMemoryPolicyRepository, SqlPolicyRepository
 from .policy_signing import load_public_key
@@ -133,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Auth is added before CORS so browser clients still receive CORS headers on 401/403 responses.
     app.add_middleware(AuthMiddleware)
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=resolved_settings.max_request_body_bytes)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,

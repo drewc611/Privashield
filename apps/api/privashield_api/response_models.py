@@ -7,6 +7,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from .limits import BoundedMetadata
+
 
 class ResponseActionType(StrEnum):
     BLOCK_IP = "block_ip"
@@ -29,7 +31,7 @@ class ResponseActionCreate(BaseModel):
     target: str = Field(min_length=1, max_length=1024)
     reason: str = Field(min_length=1, max_length=2000)
     detection_id: UUID | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: BoundedMetadata = Field(default_factory=dict)
 
 
 class ResponseAction(BaseModel):

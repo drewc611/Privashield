@@ -7,6 +7,7 @@ Base path: `/api/v1`
 - JSON request/response bodies unless otherwise noted
 - UTC timestamps in RFC 3339 format
 - bearer authentication when `PRIVASHIELD_AUTH_MODE=local` (the default)
+- 413 for request bodies over `PRIVASHIELD_MAX_REQUEST_BODY_BYTES` (default 1 MiB); 422 for `metadata` over 16 KiB serialized
 - 401 for missing/invalid credentials and 403 for insufficient role authority
 - UUID domain identifiers
 - server-side RBAC; dashboard visibility is not authorization

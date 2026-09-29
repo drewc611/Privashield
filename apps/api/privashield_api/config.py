@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal, Self
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "gemma3"
     audit_path: str | None = None
+    max_request_body_bytes: int = Field(default=1_048_576, gt=0)
     sensor_ttl_seconds: int = 60
     policy_verification_public_key: str | None = None
     policy_verification_key_id: str = "local-v1"
