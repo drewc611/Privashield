@@ -565,3 +565,36 @@ def test_trusted_state_survives_a_restart(tmp_path: Path) -> None:
     reloaded = AdaptiveDetector.load(path)
     assert reloaded.trusted_model_state == detector.trusted_model_state
     assert reloaded.restore_trusted_state() is True
+
+
+def test_the_canary_baseline_ratchets_up_as_the_model_improves() -> None:
+    """A bar that never rises stops measuring what it was set to protect.
+
+    Without this, the baseline stays at its startup value, so a model that learns
+    its way to perfect accuracy can be degraded most of the way back down without
+    the canary noticing.
+    """
+    detector = AdaptiveDetector(canary_corpus=[(MALICIOUS, 1.0), (BENIGN, 0.0)], canary_interval=10)
+    starting = detector.run_canary(detector.canary_corpus or [], freeze_on_degradation=False)
+    detector.accept_canary_baseline(starting)
+    assert detector.canary_baseline == 0.5, "untrained model calls everything malicious"
+
+    train(detector, rounds=40)
+
+    assert detector.canary_baseline == 1.0, "the bar did not follow the model up"
+
+
+def test_a_ratcheted_baseline_catches_degradation_from_the_high_water_mark() -> None:
+    detector = AdaptiveDetector(
+        guard=PoisoningGuard(config=GuardConfig(max_source_share=1.0, label_flood_threshold=10000)),
+        canary_corpus=[(MALICIOUS, 1.0), (BENIGN, 0.0)],
+        canary_interval=5,
+    )
+    train(detector, rounds=40)
+    assert detector.canary_baseline == 1.0
+
+    for _ in range(50):
+        detector.learn(MALICIOUS, feedback(FeedbackLabel.BENIGN), source="compromised", now=NOW)
+
+    assert detector.guard.frozen, "degradation from the ratcheted bar went unnoticed"
+    assert detector.score(MALICIOUS).score > 0.5

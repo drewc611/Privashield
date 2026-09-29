@@ -186,6 +186,14 @@ class AdaptiveDetector:
             # Checkpoint: this state is verified against ground truth, so it is
             # somewhere safe to return to.
             self.trusted_model_state = self.model.to_state()
+            if result.accuracy > self.canary_baseline:
+                # Ratchet the bar up to the high-water mark. Without this the
+                # baseline stays at whatever it was when learning started, so a
+                # model that improves to perfect accuracy could be degraded back
+                # to just above the old baseline without tripping anything. The
+                # same reasoning as the coverage floor: a floor that never rises
+                # stops measuring the thing it was set to protect.
+                self.canary_baseline = result.accuracy
             return result
         if freeze_on_degradation:
             restored = self.restore_trusted_state()

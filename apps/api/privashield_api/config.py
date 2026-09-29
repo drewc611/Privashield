@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "gemma3"
     audit_path: str | None = None
+    # Scoring is advisory and read-only, so it is on by default. Training is
+    # opt-in: ADR-0004 treats a self-training detector as a trust-boundary
+    # change, which is an operator's decision rather than a default.
+    adaptive_scoring_enabled: bool = True
+    adaptive_learning_enabled: bool = False
+    adaptive_canary_path: str = "evaluation/adaptive-canary.json"
+    adaptive_state_path: str | None = None
+    adaptive_canary_interval: int = 20
     sensor_ttl_seconds: int = 60
     policy_verification_public_key: str | None = None
     policy_verification_key_id: str = "local-v1"

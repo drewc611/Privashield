@@ -8,8 +8,10 @@ from .audit import AuditLedger
 from .auth import AuthService
 from .auth_models import PrincipalContext
 from .bus import EventBus
+from .config import Settings
 from .feedback_repository import FeedbackRepository
 from .firewall import FirewallController
+from .learning.engine import AdaptiveDetector
 from .policy import PolicyService
 from .realtime import EventHub
 from .repository import EventRepository
@@ -47,6 +49,14 @@ def get_firewall_controller(request: Request) -> FirewallController:
 
 def get_ai_analyzer(request: Request) -> ThreatAnalyzer:
     return cast(ThreatAnalyzer, request.app.state.ai_analyzer)
+
+
+def get_app_settings(request: Request) -> Settings:
+    return cast(Settings, request.app.state.settings)
+
+
+def get_adaptive_detector(request: Request) -> AdaptiveDetector:
+    return cast(AdaptiveDetector, request.app.state.adaptive_detector)
 
 
 def get_anomaly_engine(request: Request) -> AnomalyEngine:

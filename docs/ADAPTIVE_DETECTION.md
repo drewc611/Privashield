@@ -131,6 +131,72 @@ understand rather than guessing at the layout. The trusted checkpoint is
 persisted alongside the live model, so a restart does not discard the rollback
 target.
 
+## The API surface
+
+Scoring is on by default and learning is not, and the split is deliberate.
+Scoring is read-only and advisory, so it costs nothing to expose. Training is a
+trust-boundary change under ADR-0004, which makes it an operator's decision
+rather than a default in a security product.
+
+- `GET /learning/status` reports the detector and, more importantly, whether its
+  defenses are armed.
+- `GET /learning/score/{event_id}` scores one stored event.
+
+There is no endpoint that trains the model. Feedback is the only path in, so
+every update passes the guard; a second route would be a second way to move the
+weights that did not.
+
+`POST /feedback` offers each event-targeted label to the detector, and the
+outcome lands in the audit ledger either way — `learning.update.applied` or
+`learning.update.refused`. Recording only the successes would hide the useful
+half: an analyst whose influence was capped, or a window that looked like a label
+flood, is exactly what someone auditing the model's history needs to find.
+
+### Enabled is not the same as effective
+
+`learning_enabled` is configuration. `learning_effective` is whether feedback can
+reach the model right now, and `learning_blocked_reason` names what is in the way.
+They separate for four reasons, and the first is the one that bites:
+
+- Authentication is disabled, so no analyst is a verified principal and the guard
+  weights every update at zero. An operator who set the flag would otherwise see
+  learning reported as on, watch the update count stay at zero, and get no
+  explanation.
+- Learning is switched off in configuration.
+- No canary corpus is armed. Learning is refused outright in that state rather
+  than merely reported, because ADR-0004 measured that the rate limits alone do
+  not stop a determined poisoner; without ground truth there is no working
+  defense to run under.
+- The guard is frozen, which is not auto-reversible by design.
+
+One predicate answers this, used by both the status endpoint and the feedback
+path, so what an operator reads cannot drift from what actually happens.
+
+## Ground truth
+
+`evaluation/adaptive-canary.json` holds the corpus, committed alongside the
+detection corpus and loaded rather than generated: a corpus the code could
+synthesise would be a corpus an attacker could influence.
+
+Loading validates rather than trusts. An unknown `schema_version` is refused, a
+label that is anything other than 0.0 or 1.0 is refused because ground truth
+cannot be a hedge, and a one-sided corpus is refused because a model that calls
+everything malicious scores perfectly against an all-malicious corpus and so
+could be blinded without the canary noticing.
+
+Arming is a separate step from construction because the baseline has to be
+measured rather than assumed. A detector carrying a corpus it had never been
+scored against would report `canary_enabled` true with no bar to fall below,
+which is the worst available outcome: the defense looks present and does nothing.
+An untrained model starts at 0.5 accuracy on a balanced corpus, since it predicts
+0.5 for everything and a 0.5 threshold reads that as malicious.
+
+The baseline then ratchets. Every passing canary raises it to the new accuracy,
+for the same reason the coverage floor rises: a bar that never moves stops
+measuring the thing it was set to protect. Without the ratchet a model that
+learned its way to perfect accuracy could be pushed back down to just above its
+startup baseline without tripping anything.
+
 ## Operating it
 
 `status()` returns model kind, update count, freeze state and reason, canary

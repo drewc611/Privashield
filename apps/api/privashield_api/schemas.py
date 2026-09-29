@@ -128,6 +128,54 @@ class AIStatus(BaseModel):
     authority: str = "advisory-only"
 
 
+class AdaptiveFeatureContribution(BaseModel):
+    feature: str
+    contribution: float
+
+
+class AdaptiveAssessmentResponse(BaseModel):
+    """A learned score for one event. Advisory, per ADR-0001."""
+
+    event_id: UUID
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    model_kind: str
+    model_updates: int
+    contributions: list[AdaptiveFeatureContribution] = Field(default_factory=list)
+    #: Structural, not configurable. A learned score never carries authority.
+    advisory_only: bool = True
+
+
+class AdaptiveStatus(BaseModel):
+    """Operator view of the adaptive detector.
+
+    `canary_enabled` and `has_trusted_state` are reported because a deployment
+    that learns without ground truth has no defense against poisoning (ADR-0004),
+    and that has to be visible rather than assumed.
+    """
+
+    scoring_enabled: bool
+    #: What configuration asks for.
+    learning_enabled: bool
+    #: Whether feedback can actually reach the model right now. These come apart
+    #: more easily than they look: with authentication disabled no analyst is a
+    #: verified principal, so the guard weights every update at zero and an
+    #: operator who set the flag would see nothing learn and no reason why.
+    learning_effective: bool
+    learning_blocked_reason: str | None = None
+    model_kind: str
+    updates: int
+    learning_frozen: bool
+    frozen_reason: str | None = None
+    canary_enabled: bool
+    canary_baseline: float
+    canary_interval: int
+    has_trusted_state: bool
+    window_sources: dict[str, int] = Field(default_factory=dict)
+    top_features: list[dict[str, object]] = Field(default_factory=list)
+    advisory_only: bool = True
+
+
 class FirewallConfig(BaseModel):
     mode: FirewallMode = "observe"
     threshold: float = Field(default=0.85, ge=0.0, le=1.0)

@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0",
+  "description": "Immutable ground truth for the adaptive detector's canary (ADR-0004). Each case is a security event whose label is not in dispute, which is the only kind of case that belongs here: the canary's job is to notice when the model stops recognising something obvious, so an arguable case would make it noisy rather than useful. Kept separate from detection-corpus.json, which holds engine-specific fixtures rather than labelled events. Do not relabel a case to make a change pass.",
+  "decision_threshold": 0.5,
+  "tolerance": 0.05,
+  "cases": [
+    {
+      "id": "rdp-brute-force",
+      "expected": 1.0,
+      "event": {
+        "timestamp": "2026-09-29T02:14:00Z",
+        "source": "suricata",
+        "event_type": "alert",
+        "severity": "critical",
+        "summary": "Repeated failed RDP authentication from external host",
+        "src_ip": "198.51.100.23",
+        "dst_ip": "10.0.4.17",
+        "dst_port": 3389,
+        "protocol": "tcp",
+        "direction": "inbound"
+      }
+    },
+    {
+      "id": "metasploit-default-listener",
+      "expected": 1.0,
+      "event": {
+        "timestamp": "2026-09-29T03:41:00Z",
+        "source": "zeek",
+        "event_type": "connection",
+        "severity": "critical",
+        "summary": "Outbound connection to known exploitation framework default port",
+        "src_ip": "10.0.4.17",
+        "dst_ip": "203.0.113.9",
+        "dst_port": 4444,
+        "protocol": "tcp",
+        "direction": "outbound"
+      }
+    },
+    {
+      "id": "credential-dump-write",
+      "expected": 1.0,
+      "event": {
+        "timestamp": "2026-09-29T03:52:00Z",
+        "source": "host",
+        "event_type": "file_write",
+        "severity": "critical",
+        "summary": "Credential store copied to a temporary path by an unexpected process",
+        "process": "/tmp/.x/dumper",
+        "user_id": "svc-deploy"
+      }
+    },
+    {
+      "id": "mass-encryption-burst",
+      "expected": 1.0,
+      "event": {
+        "timestamp": "2026-09-29T04:05:00Z",
+        "source": "host",
+        "event_type": "file_rename",
+        "severity": "critical",
+        "summary": "Large volume of documents renamed with an unfamiliar extension in seconds",
+        "process": "/home/alice/.cache/enc",
+        "user_id": "alice"
+      }
+    },
+    {
+      "id": "off-hours-admin-escalation",
+      "expected": 1.0,
+      "event": {
+        "timestamp": "2026-09-29T03:10:00Z",
+        "source": "system",
+        "event_type": "privilege_change",
+        "severity": "high",
+        "summary": "Service account granted administrative role outside change window",
+        "user_id": "svc-backup"
+      }
+    },
+    {
+      "id": "scheduled-backup",
+      "expected": 0.0,
+      "event": {
+        "timestamp": "2026-09-29T01:00:00Z",
+        "source": "system",
+        "event_type": "job_completed",
+        "severity": "info",
+        "summary": "Nightly backup job completed successfully",
+        "process": "/usr/bin/backup-agent",
+        "user_id": "svc-backup"
+      }
+    },
+    {
+      "id": "routine-https-fetch",
+      "expected": 0.0,
+      "event": {
+        "timestamp": "2026-09-29T14:22:00Z",
+        "source": "zeek",
+        "event_type": "connection",
+        "severity": "info",
+        "summary": "Workstation fetched an operating system update over TLS",
+        "src_ip": "10.0.4.31",
+        "dst_ip": "198.51.100.200",
+        "dst_port": 443,
+        "protocol": "tcp",
+        "direction": "outbound"
+      }
+    },
+    {
+      "id": "successful-interactive-login",
+      "expected": 0.0,
+      "event": {
+        "timestamp": "2026-09-29T09:05:00Z",
+        "source": "system",
+        "event_type": "auth_success",
+        "severity": "info",
+        "summary": "Analyst signed in during business hours from a managed device",
+        "user_id": "alice",
+        "direction": "inbound"
+      }
+    },
+    {
+      "id": "healthcheck-poll",
+      "expected": 0.0,
+      "event": {
+        "timestamp": "2026-09-29T11:30:00Z",
+        "source": "system",
+        "event_type": "healthcheck",
+        "severity": "info",
+        "summary": "Load balancer polled the health endpoint",
+        "src_ip": "10.0.0.5",
+        "dst_port": 8080,
+        "protocol": "tcp",
+        "direction": "inbound"
+      }
+    },
+    {
+      "id": "dns-lookup-internal",
+      "expected": 0.0,
+      "event": {
+        "timestamp": "2026-09-29T10:12:00Z",
+        "source": "zeek",
+        "event_type": "dns",
+        "severity": "low",
+        "summary": "Internal name resolution for an inventory service",
+        "src_ip": "10.0.4.31",
+        "dst_ip": "10.0.0.2",
+        "dst_port": 53,
+        "protocol": "udp",
+        "direction": "lateral"
+      }
+    }
+  ]
+}
