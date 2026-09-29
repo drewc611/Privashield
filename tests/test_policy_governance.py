@@ -25,7 +25,8 @@ def client(*, configured: bool = True) -> TestClient:
                 nats_enabled=False,
                 ollama_enabled=False,
                 audit_path=None,
-                environment="test",
+                environment="development",
+                auth_mode="disabled",
                 policy_verification_public_key=PUBLIC_KEY_B64 if configured else None,
                 policy_verification_key_id=KEY_ID,
             )

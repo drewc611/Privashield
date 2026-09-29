@@ -9,7 +9,8 @@ from privashield_api.main import create_app
 def build_test_client() -> TestClient:
     settings = Settings(
         database_enabled=False,
-        environment="test",
+        environment="development",
+        auth_mode="disabled",
         enforcement_mode="observe",
     )
     return TestClient(create_app(settings))

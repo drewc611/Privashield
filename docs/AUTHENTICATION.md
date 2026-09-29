@@ -1,6 +1,10 @@
 # Local Authentication and RBAC
 
-PrivaShield supports an opt-in local authentication mode for self-hosted deployments. The default remains `disabled` for loopback-only development compatibility. Any non-loopback or multi-user deployment should use `local` authentication until an external identity-provider integration is available.
+PrivaShield supports a local authentication mode for self-hosted deployments, and it is the default (`PRIVASHIELD_AUTH_MODE=local`). Any non-loopback or multi-user deployment should use it until an external identity-provider integration is available.
+
+## Disabling authentication (development only)
+
+`PRIVASHIELD_AUTH_MODE=disabled` treats every request as an unverified administrator. The API refuses to start with it unless `PRIVASHIELD_ENVIRONMENT=development` is set as well; the default environment is `production`. Setting both is an explicit development opt-in for a loopback-only host, and the API logs a warning at startup when it is in effect. The check does not inspect the network bind address, so keeping the port on loopback remains the operator's responsibility.
 
 ## Security model
 

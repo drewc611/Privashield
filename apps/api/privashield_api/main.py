@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -43,6 +44,8 @@ from .routes.response import router as response_router
 from .routes.sensors import router as sensors_router
 from .sensors import SensorRegistry
 
+logger = logging.getLogger(__name__)
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
@@ -63,8 +66,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             resolved_settings.ollama_enabled,
         )
 
+        if resolved_settings.auth_mode == "disabled":
+            logger.warning(
+                "Authentication is disabled: every request is treated as an unverified "
+                "administrator. Use this only on a loopback-only development host."
+            )
+
         if resolved_settings.database_enabled:
-            engine = build_engine(resolved_settings.database_url)
+            if resolved_settings.database_url is None:
+                raise RuntimeError(
+                    "PRIVASHIELD_DATABASE_URL is required when the database is enabled. "
+                    "Set it in the environment or .env, or set PRIVASHIELD_DATABASE_ENABLED=false."
+                )
+            engine = build_engine(resolved_settings.database_url.get_secret_value())
             await initialize_schema(engine)
             session_factory = build_session_factory(engine)
             app.state.database_engine = engine

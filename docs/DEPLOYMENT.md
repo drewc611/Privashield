@@ -22,7 +22,9 @@ Privileged enforcement is not part of this topology.
 
 Compose publishes the API and WAF/dashboard on loopback by default. PostgreSQL, NATS, Ollama, and sensor-internal services are not published to untrusted interfaces.
 
-Loopback-only development may use `PRIVASHIELD_AUTH_MODE=disabled`. Before intentional non-loopback or multi-user exposure, enable local authentication and deploy TLS/appropriate network controls. Local RBAC does not replace TLS.
+Authentication is on by default (`PRIVASHIELD_AUTH_MODE=local`). Loopback-only development may set `PRIVASHIELD_AUTH_MODE=disabled` together with `PRIVASHIELD_ENVIRONMENT=development`; the API refuses to start with the first setting alone. Before intentional non-loopback or multi-user exposure, keep local authentication on and deploy TLS/appropriate network controls. Local RBAC does not replace TLS.
+
+Compose requires `POSTGRES_PASSWORD` and `PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN` and stops when either is empty.
 
 ## Local authentication bootstrap
 
