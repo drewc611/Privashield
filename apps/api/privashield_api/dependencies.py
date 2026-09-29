@@ -2,7 +2,7 @@ from typing import cast
 
 from fastapi import HTTPException, Request
 
-from .ai import OllamaThreatAnalyzer
+from .ai import ThreatAnalyzer
 from .anomaly import AnomalyEngine
 from .audit import AuditLedger
 from .auth import AuthService
@@ -45,8 +45,8 @@ def get_firewall_controller(request: Request) -> FirewallController:
     return cast(FirewallController, request.app.state.firewall_controller)
 
 
-def get_ai_analyzer(request: Request) -> OllamaThreatAnalyzer:
-    return cast(OllamaThreatAnalyzer, request.app.state.ai_analyzer)
+def get_ai_analyzer(request: Request) -> ThreatAnalyzer:
+    return cast(ThreatAnalyzer, request.app.state.ai_analyzer)
 
 
 def get_anomaly_engine(request: Request) -> AnomalyEngine:

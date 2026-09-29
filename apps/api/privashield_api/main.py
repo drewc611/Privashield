@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .ai import OllamaThreatAnalyzer
+from .ai import OllamaProvider, ThreatAnalyzer
 from .anomaly import AnomalyEngine
 from .audit import AuditLedger
 from .auth import AuthorizationPolicy, AuthService
@@ -57,10 +57,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.firewall_controller = FirewallController(resolved_settings.enforcement_mode)
         app.state.anomaly_engine = AnomalyEngine()
         app.state.response_store = ResponseStore()
-        app.state.ai_analyzer = OllamaThreatAnalyzer(
-            resolved_settings.ollama_base_url,
-            resolved_settings.ollama_model,
-            resolved_settings.ollama_enabled,
+        app.state.ai_analyzer = ThreatAnalyzer(
+            provider=OllamaProvider(
+                resolved_settings.ollama_base_url,
+                resolved_settings.ollama_model,
+                resolved_settings.ollama_enabled,
+            )
         )
 
         if resolved_settings.database_enabled:
