@@ -24,7 +24,11 @@ Compose publishes the API and WAF/dashboard on loopback by default. PostgreSQL, 
 
 Authentication is on by default (`PRIVASHIELD_AUTH_MODE=local`). Loopback-only development may set `PRIVASHIELD_AUTH_MODE=disabled` together with `PRIVASHIELD_ENVIRONMENT=development`; the API refuses to start with the first setting alone. Before intentional non-loopback or multi-user exposure, keep local authentication on and deploy TLS/appropriate network controls. Local RBAC does not replace TLS.
 
-Compose requires `POSTGRES_PASSWORD` and `PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN` and stops when either is empty.
+Compose requires `POSTGRES_PASSWORD` and `PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN` and stops when either is empty. Third-party images are pinned by digest and Python dependencies by `requirements.lock`; Dependabot proposes updates to both. Regenerate the lock after changing dependencies in `pyproject.toml`:
+
+```bash
+uv pip compile pyproject.toml --python-version 3.12 --universal --generate-hashes -o requirements.lock
+```
 
 ## Local authentication bootstrap
 

@@ -18,6 +18,7 @@ The project follows semantic versioning once versioned releases begin. Until the
 ### Changed
 
 - Authentication now defaults to `local`. The API refuses to start with `PRIVASHIELD_AUTH_MODE=disabled` unless `PRIVASHIELD_ENVIRONMENT=development` is also set, and the default environment is `production`. Compose requires `PRIVASHIELD_BOOTSTRAP_ADMIN_TOKEN` and `POSTGRES_PASSWORD`; the built-in database URL and its password were removed (PS-1, PS-2).
+- Compose images and container base images are pinned by digest, Python dependencies are installed from the hash-locked `requirements.lock`, and Dependabot tracks both (PS-3).
 - Expanded the initial README into the project entry point.
 - Program Board priorities now track the current software-supply-chain and enterprise-hardening work instead of completed Phase 1 bootstrap tasks.
 
