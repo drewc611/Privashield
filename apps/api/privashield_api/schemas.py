@@ -171,6 +171,16 @@ class AdaptiveStatus(BaseModel):
     canary_baseline: float
     canary_interval: int
     has_trusted_state: bool
+    #: Whether learned state survives a restart. False means the model is
+    #: in-memory only, so everything it learns is lost when the process stops —
+    #: the failure mode that makes a learning feature look like it works and then
+    #: quietly reset.
+    state_durable: bool = False
+    #: The per-source influence cap, reported so `window_sources` is readable. A
+    #: source holds roughly 1/`active_sources` of the window, so a small team can
+    #: sit permanently against this cap and stop training with no other symptom.
+    max_source_share: float
+    active_sources: int
     window_sources: dict[str, int] = Field(default_factory=dict)
     top_features: list[dict[str, object]] = Field(default_factory=list)
     advisory_only: bool = True

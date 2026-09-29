@@ -62,6 +62,9 @@ async def learning_status(
         canary_baseline=float(snapshot["canary_baseline"]),
         canary_interval=int(snapshot["canary_interval"]),
         has_trusted_state=bool(snapshot["has_trusted_state"]),
+        state_durable=bool(snapshot["state_durable"]),
+        max_source_share=float(snapshot["max_source_share"]),
+        active_sources=int(snapshot["active_sources"]),
         window_sources=dict(snapshot["window_sources"]),
         top_features=list(snapshot["top_features"]),
     )

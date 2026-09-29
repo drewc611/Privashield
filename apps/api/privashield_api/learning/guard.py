@@ -219,9 +219,17 @@ class PoisoningGuard:
                 detail="feedback from an unverified principal cannot train the model",
             )
 
-        same_source = [item for item in self._history if item.source == source]
+        # One pass with two counters. This used to build a list of the source's
+        # observations only to take its length twice, on a path that already costs
+        # O(window) and runs on every feedback submission.
+        same_source = 0
+        matching_label = 0
+        for item in self._history:
+            if item.source == source:
+                same_source += 1
+                if item.label == label:
+                    matching_label += 1
 
-        matching_label = sum(1 for item in same_source if item.label == label)
         if matching_label >= self.config.label_flood_threshold:
             return GuardDecision(
                 accepted=False,
@@ -236,7 +244,7 @@ class PoisoningGuard:
         if total >= self.config.min_updates_before_capping:
             # Share is measured as it would stand *after* accepting this one,
             # so the cap cannot be walked past one update at a time.
-            projected = (len(same_source) + 1) / (total + 1)
+            projected = (same_source + 1) / (total + 1)
             if projected > self.config.max_source_share:
                 return GuardDecision(
                     accepted=False,

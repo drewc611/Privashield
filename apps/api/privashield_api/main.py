@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -22,6 +23,7 @@ from .feedback_repository import InMemoryFeedbackRepository, SqlFeedbackReposito
 from .firewall import FirewallController
 from .learning.canary import CanaryCorpusError, arm_detector, load_canary_corpus
 from .learning.engine import AdaptiveDetector
+from .learning.guard import GuardConfig, PoisoningGuard
 from .policy import PolicyService
 from .policy_repository import InMemoryPolicyRepository, SqlPolicyRepository
 from .policy_signing import load_public_key
@@ -57,11 +59,22 @@ def _build_adaptive_detector(settings: Settings) -> AdaptiveDetector:
     left unarmed and `status()` reports `canary_enabled` false, which is what
     makes that condition visible instead of assumed.
     """
-    detector = AdaptiveDetector()
+    guard_config = GuardConfig(
+        window=timedelta(hours=settings.adaptive_window_hours),
+        max_source_share=settings.adaptive_max_source_share,
+        min_updates_before_capping=settings.adaptive_min_updates_before_capping,
+        label_flood_threshold=settings.adaptive_label_flood_threshold,
+    )
 
     state_path = Path(settings.adaptive_state_path) if settings.adaptive_state_path else None
     if state_path is not None and state_path.exists():
         detector = AdaptiveDetector.load(state_path)
+        # A reloaded detector carries the bounds it was saved with. Configuration
+        # is the current intent, so it wins.
+        detector.guard.config = guard_config
+    else:
+        detector = AdaptiveDetector(guard=PoisoningGuard(config=guard_config))
+    detector.state_path = state_path
 
     try:
         corpus = load_canary_corpus(settings.adaptive_canary_path)
@@ -139,11 +152,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         yield
 
-        state_path = resolved_settings.adaptive_state_path
-        if state_path and resolved_settings.adaptive_learning_enabled:
-            # Only persist when learning was on. Saving an untouched model would
-            # overwrite a real one with a fresh one on the next restart.
-            app.state.adaptive_detector.save(Path(state_path))
+        # Final flush. Checkpoints already happen on every verified canary, so
+        # this only catches updates since the last one; a crash loses at most that
+        # window rather than the whole model.
+        app.state.adaptive_detector.flush()
 
         await app.state.event_bus.close()
         if app.state.database_engine is not None:

@@ -119,6 +119,14 @@ class AdaptiveDetector:
     #: canary cadence the poison that lands between checks is enough to push a
     #: 0.99 score to 0.32, so detection has to come with reversal.
     trusted_model_state: dict[str, Any] | None = field(default=None, repr=False)
+    #: Where learned state is persisted. Without it the model is in-memory only,
+    #: so everything it learns is lost on restart — which for a feature whose
+    #: whole premise is learning over time is indistinguishable from it not
+    #: working. `status()` reports whether this is set.
+    state_path: Path | None = None
+    #: Set when the model reaches a state worth persisting. Checked and cleared by
+    #: `flush`, which callers run off the event loop because the write blocks.
+    _save_pending: bool = field(default=False, init=False, repr=False)
 
     # -- scoring ----------------------------------------------------------
 
@@ -145,7 +153,14 @@ class AdaptiveDetector:
         source: str,
         now: datetime | None = None,
     ) -> LearningOutcome:
-        """Offer one labelled event to the model. The guard may refuse it."""
+        """Offer one labelled event to the model. The guard may refuse it.
+
+        Deliberately synchronous and free of I/O. That is what makes it atomic
+        under asyncio: two concurrent feedback requests cannot interleave a model
+        update, because there is no await for the loop to switch on. Adding one
+        here — including a save — would introduce a lost-update race. Persistence
+        is handled by `flush` instead.
+        """
         decision = self.guard.evaluate(
             label=feedback.label,
             source=source,
@@ -194,6 +209,9 @@ class AdaptiveDetector:
                 # same reasoning as the coverage floor: a floor that never rises
                 # stops measuring the thing it was set to protect.
                 self.canary_baseline = result.accuracy
+            # A verified-good state is the one worth keeping. Marking rather than
+            # writing here keeps `learn` free of blocking I/O; see `flush`.
+            self._save_pending = True
             return result
         if freeze_on_degradation:
             restored = self.restore_trusted_state()
@@ -242,6 +260,27 @@ class AdaptiveDetector:
             },
             "model": self.model.to_state(),
         }
+
+    @property
+    def save_pending(self) -> bool:
+        """Whether the model has reached a state that has not been persisted."""
+        return self._save_pending and self.state_path is not None
+
+    def flush(self) -> bool:
+        """Persist verified state if one is owed. Returns whether it wrote.
+
+        Blocking, by design: it is a file write. Callers inside the event loop run
+        it through `asyncio.to_thread`, because 4.5 ms of synchronous I/O on the
+        loop stalls every other in-flight request, not just this one. Racing
+        flushes are safe — `save` writes through a temporary file and renames, so
+        the last writer wins and no reader ever sees a partial file.
+        """
+        if not self.save_pending:
+            return False
+        assert self.state_path is not None  # narrowed by save_pending
+        self.save(self.state_path)
+        self._save_pending = False
+        return True
 
     def save(self, path: Path) -> None:
         """Write state atomically, so a crash mid-write cannot corrupt it."""
@@ -300,6 +339,7 @@ class AdaptiveDetector:
             top = [
                 {"feature": name, "weight": weight} for name, weight in self.model.top_features(10)
             ]
+        window = self.guard.window_stats(now)
         return {
             "model_kind": self.model.kind,
             "updates": self.model.updates,
@@ -309,7 +349,10 @@ class AdaptiveDetector:
             "canary_enabled": bool(self.canary_corpus),
             "canary_interval": self.canary_interval,
             "has_trusted_state": self.trusted_model_state is not None,
-            "window_sources": self.guard.window_stats(now),
+            "state_durable": self.state_path is not None,
+            "max_source_share": self.guard.config.max_source_share,
+            "active_sources": len(window),
+            "window_sources": window,
             "top_features": top,
             "advisory_only": True,
         }

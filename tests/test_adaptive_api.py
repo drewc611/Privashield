@@ -371,3 +371,143 @@ def test_a_refused_update_is_recorded_too() -> None:
     refusals = [entry for entry in entries if entry["action"] == "learning.update.refused"]
     assert refusals, "a refused update left no trace"
     assert refusals[-1]["resource_id"] == event["id"]
+
+
+# --------------------------------------------------------------------------
+# Durability — a model that forgets on restart is not a learning model
+# --------------------------------------------------------------------------
+
+
+def test_status_reports_when_learned_state_is_not_durable() -> None:
+    # The default has no state path, so everything learned is lost on restart.
+    # That has to be readable rather than discovered after a month of training.
+    with client() as api:
+        body = api.get("/api/v1/learning/status").json()
+    assert body["state_durable"] is False
+
+
+def test_learning_survives_a_restart(tmp_path: Path) -> None:
+    """The defect this closes: learned state only reached disk at clean shutdown.
+
+    With no state path configured — the default — it never reached disk at all.
+    """
+    state = tmp_path / "detector.json"
+    settings: dict[str, object] = {
+        "adaptive_learning_enabled": True,
+        "auth_mode": "local",
+        "bootstrap_admin_token": "test-admin-token",
+        "adaptive_state_path": str(state),
+        "adaptive_canary_interval": 5,
+        # One principal submits every label here, so at the default 0.35 cap the
+        # guard refuses everything past ~20 updates. That is the cap doing its
+        # job; it is exercised on its own below.
+        "adaptive_max_source_share": 1.0,
+    }
+    headers = {"Authorization": "Bearer test-admin-token"}
+
+    with client(**settings) as api:
+        assert api.get("/api/v1/learning/status", headers=headers).json()["state_durable"] is True
+        for _ in range(25):
+            event = ingest_authenticated(api, headers)
+            api.post(
+                "/api/v1/feedback",
+                json={"target_type": "event", "target_id": event["id"], "label": "true_positive"},
+                headers=headers,
+            )
+        trained = api.get("/api/v1/learning/status", headers=headers).json()["updates"]
+
+    assert trained == 25
+    assert state.exists(), "learned state never reached disk"
+
+    # A fresh process, as a restart would be.
+    with client(**settings) as api:
+        restored = api.get("/api/v1/learning/status", headers=headers).json()
+    assert restored["updates"] == trained, "the model forgot everything on restart"
+
+
+def test_a_checkpoint_lands_before_any_clean_shutdown(tmp_path: Path) -> None:
+    """A crash must not cost the whole model, only the window since the last check.
+
+    Checkpoints ride the canary: the state that passed ground truth is the state
+    worth keeping, so the trusted checkpoint and the durable one are the same.
+    """
+    state = tmp_path / "detector.json"
+    detector = arm_detector(AdaptiveDetector(), load_canary_corpus(), interval=5)
+    detector.state_path = state
+    assert detector.save_pending is True, "arming produces a verified state to keep"
+
+    assert detector.flush() is True
+    assert state.exists()
+    assert detector.flush() is False, "a second flush with nothing owed must not rewrite"
+
+
+def test_flush_is_a_no_op_without_a_state_path() -> None:
+    detector = arm_detector(AdaptiveDetector(), load_canary_corpus())
+    assert detector.state_path is None
+    assert detector.save_pending is False
+    assert detector.flush() is False
+
+
+# --------------------------------------------------------------------------
+# The influence cap interacts with team size, and that is easy to mistake for
+# a broken feature
+# --------------------------------------------------------------------------
+
+
+def test_a_single_analyst_hits_the_influence_cap_at_the_default() -> None:
+    """Measured, and the reason the bounds are now configurable.
+
+    A source holds roughly 1/N of the window with N active analysts, so at the
+    default 0.35 cap a one-analyst deployment stops training at about 20 updates.
+    For a local-first appliance that is the common case, not the edge case.
+    """
+    with client(
+        adaptive_learning_enabled=True,
+        auth_mode="local",
+        bootstrap_admin_token="test-admin-token",
+    ) as api:
+        headers = {"Authorization": "Bearer test-admin-token"}
+        for _ in range(40):
+            event = ingest_authenticated(api, headers)
+            api.post(
+                "/api/v1/feedback",
+                json={"target_type": "event", "target_id": event["id"], "label": "true_positive"},
+                headers=headers,
+            )
+        body = api.get("/api/v1/learning/status", headers=headers).json()
+
+    assert body["updates"] <= 25, "the cap should have stopped a single source"
+    # And the operator can now see why, rather than watching it stall in silence.
+    assert body["max_source_share"] == pytest.approx(0.35)
+    assert body["active_sources"] == 1
+
+
+def test_raising_the_cap_lets_a_small_team_keep_training() -> None:
+    with client(
+        adaptive_learning_enabled=True,
+        auth_mode="local",
+        bootstrap_admin_token="test-admin-token",
+        adaptive_max_source_share=1.0,
+    ) as api:
+        headers = {"Authorization": "Bearer test-admin-token"}
+        for _ in range(40):
+            event = ingest_authenticated(api, headers)
+            api.post(
+                "/api/v1/feedback",
+                json={"target_type": "event", "target_id": event["id"], "label": "true_positive"},
+                headers=headers,
+            )
+        body = api.get("/api/v1/learning/status", headers=headers).json()
+
+    assert body["updates"] == 40
+    assert body["max_source_share"] == pytest.approx(1.0)
+
+
+def test_the_guard_bounds_come_from_configuration() -> None:
+    with client(
+        adaptive_max_source_share=0.6,
+        adaptive_window_hours=6,
+        adaptive_label_flood_threshold=7,
+    ) as api:
+        body = api.get("/api/v1/learning/status").json()
+    assert body["max_source_share"] == pytest.approx(0.6)

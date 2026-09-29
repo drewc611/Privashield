@@ -197,6 +197,85 @@ measuring the thing it was set to protect. Without the ratchet a model that
 learned its way to perfect accuracy could be pushed back down to just above its
 startup baseline without tripping anything.
 
+## Team size decides the influence cap
+
+The cap refuses feedback once one source would hold more than
+`adaptive_max_source_share` of the rolling window. With N active analysts a
+source holds roughly 1/N of it, so the cap and the size of the team are the same
+question. Measured against the 0.35 default, over 500 submitted labels:
+
+| Active analysts | Updates accepted | Outcome |
+| --------------- | ---------------- | ------- |
+| 1 | 20 | stalls permanently |
+| 2 | 20 | stalls permanently |
+| 3 | 21 | stalls permanently |
+| 4 | 200 | stalls |
+| 6 | 300 | stalls |
+| 10 | 500 | keeps going |
+
+For a local-first appliance, one or two analysts is the common case rather than
+the edge case, so the default makes the detector stop learning after about twenty
+updates with no symptom other than `learning.update.refused` entries in the audit
+ledger. That is why the bounds are configurable and why `status()` now reports
+`max_source_share` and `active_sources`: a stalled detector should be diagnosable
+from the status endpoint instead of inferred from the ledger.
+
+Raising the cap weakens rate limiting, and ADR-0004 already measured what that
+costs. It is a deliberate trade rather than a free one, and the canary plus
+rollback is what makes it survivable: a single-analyst deployment that sets the
+cap to 1.0 has no rate limiting at all and is relying entirely on ground truth to
+catch a compromised account. Keeping the canary armed is not optional there.
+
+A better rule probably exists — refusing a source that holds disproportionately
+more than its peers, rather than more than a fixed fraction — but inventing one
+in passing is how a defense ends up subtly broken, so it is left as follow-up
+rather than guessed at here.
+
+## Durability
+
+Learned state is persisted to `adaptive_state_path`, and until recently only at a
+clean shutdown. That was a defect rather than a limitation: with the path unset,
+which is the default, learned state never reached disk at all, so a deployment
+could train for a month, restart, and silently begin again from zero. A model
+that forgets on restart is indistinguishable from one that does not work.
+
+Checkpoints now ride the canary. The state that just passed ground truth is the
+state worth keeping, so the trusted checkpoint and the durable one are the same
+thing, and an ungraceful stop costs at most the updates since the last check
+rather than the whole model. `status()` reports `state_durable` so the in-memory
+case is visible.
+
+The write happens through `asyncio.to_thread`, not inline. `learn` is
+deliberately synchronous and free of I/O, which is what makes it atomic under
+asyncio: two concurrent feedback requests cannot interleave a model update
+because there is no await for the loop to switch on. Adding one, including a save,
+would introduce a lost-update race. The file write is roughly 4.5 ms, and on the
+event loop that would stall every other in-flight request rather than just the one
+doing the writing.
+
+## Measured cost
+
+Numbers from this machine, so treat them as orders of magnitude rather than a
+specification:
+
+| Path | Cost |
+| ---- | ---- |
+| `extract_features`, one event | 17 us |
+| `score`, trained model | 27 us |
+| `guard.evaluate`, 500-entry window | 9 us |
+| `guard.evaluate`, 5,000-entry window | 72 us |
+| `save`, 814 weights | 4.5 ms, 134 KiB |
+| `build_prompt`, 25 events | 1.6 ms |
+| `scan_for_injection`, 25 events | 0.74 ms |
+
+Two things worth knowing from that. Scoring is cheap enough to run per event.
+`guard.evaluate` is linear in window occupancy, which sounds worse than it is: the
+influence cap means a large window requires many analysts, so a ten-analyst site
+labelling a hundred events each per day sits near the 1,000-entry mark and pays
+about 15 us. The persisted model plateaus at roughly 814 weights and 134 KiB
+because the feature space is bounded by the 512-bucket hash dimension, so state
+does not grow without limit however long the detector runs.
+
 ## Operating it
 
 `status()` returns model kind, update count, freeze state and reason, canary

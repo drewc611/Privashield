@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 from uuid import UUID
 
@@ -93,6 +94,11 @@ async def create_feedback(
                 "learning_frozen": detector.guard.frozen,
             },
         )
+        # Persist off the event loop. The write is ~4.5 ms of synchronous I/O,
+        # which on the loop would stall every other in-flight request rather than
+        # just this one.
+        if detector.save_pending:
+            await asyncio.to_thread(detector.flush)
 
     return created
 

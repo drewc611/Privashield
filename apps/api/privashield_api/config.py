@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     adaptive_canary_path: str = "evaluation/adaptive-canary.json"
     adaptive_state_path: str | None = None
     adaptive_canary_interval: int = 20
+    # Poisoning-guard bounds. Exposed because the influence cap interacts with
+    # team size in a way no single default survives: a source holds roughly 1/N
+    # of the window with N active analysts, so at 0.35 a team of three or fewer
+    # stalls at about 20 updates and never trains further. Raising it weakens rate
+    # limiting, which ADR-0004 already establishes is not the control that bounds
+    # damage — the canary is. See docs/ADAPTIVE_DETECTION.md before changing it.
+    adaptive_max_source_share: float = 0.35
+    adaptive_min_updates_before_capping: int = 20
+    adaptive_label_flood_threshold: int = 50
+    adaptive_window_hours: int = 24
     sensor_ttl_seconds: int = 60
     policy_verification_public_key: str | None = None
     policy_verification_key_id: str = "local-v1"
