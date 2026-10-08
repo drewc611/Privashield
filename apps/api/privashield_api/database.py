@@ -1,16 +1,90 @@
+"""Persistence, and the conversions at its boundary.
+
+Columns hold strings and JSON; the domain models hold enums, addresses and nested
+models. Pydantic would coerce most of it silently, which is why this module
+carried a blanket `arg-type` mypy exclusion: the annotations claimed one thing and
+the values were another.
+
+The conversions are explicit instead. That removes the exclusion, and it changes
+what happens to a row whose stored value is outside the domain its column
+promises — written by an older schema, by hand, or by something that is not this
+API. Such a row now fails at the boundary naming the column and the value, rather
+than surfacing later as a Pydantic error about a field the reader has no path back
+to. `auth_repository.to_principal` already took this approach for stored roles.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from enum import StrEnum
+from ipaddress import IPv4Address, IPv6Address, ip_address
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Uuid
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from .feedback_models import AnalystFeedback
-from .policy_models import PolicyHistoryEvent, PolicyRevision
-from .schemas import SecurityEvent
+from .feedback_models import AnalystFeedback, FeedbackLabel, FeedbackTargetType
+from .policy_models import (
+    PolicyDocument,
+    PolicyHistoryEvent,
+    PolicyHistoryEventType,
+    PolicyRevision,
+    PolicyStatus,
+)
+from .schemas import Direction, EventSource, SecurityEvent, Severity
+
+
+class StoredValueError(ValueError):
+    """A stored value falls outside the domain its column promises.
+
+    Loud on purpose. A security product that quietly reinterprets a row it cannot
+    parse is worse than one that refuses to serve it.
+    """
+
+
+def _as_enum[E: StrEnum](enum_type: type[E], value: str, *, column: str) -> E:
+    try:
+        return enum_type(value)
+    except ValueError as exc:
+        permitted = ", ".join(sorted(member.value for member in enum_type))
+        raise StoredValueError(
+            f"{column}={value!r} is not a valid {enum_type.__name__} (permitted: {permitted})"
+        ) from exc
+
+
+def _as_optional_enum[E: StrEnum](
+    enum_type: type[E], value: str | None, *, column: str
+) -> E | None:
+    return None if value is None else _as_enum(enum_type, value, column=column)
+
+
+def _as_ip(value: str | None, *, column: str) -> IPv4Address | IPv6Address | None:
+    if value is None:
+        return None
+    try:
+        return ip_address(value)
+    except ValueError as exc:
+        raise StoredValueError(f"{column}={value!r} is not an IP address") from exc
+
+
+def _as_signature_algorithm(value: str, *, column: str) -> Literal["ed25519"]:
+    # Narrowed by hand because the domain type is a Literal rather than an enum.
+    # A stored algorithm this build cannot verify must not be treated as one it
+    # can: a signature checked with the wrong algorithm is not a checked signature.
+    if value != "ed25519":
+        raise StoredValueError(
+            f"{column}={value!r} is not a signature algorithm this build verifies"
+        )
+    return "ed25519"
+
+
+def _as_policy_document(value: Any, *, column: str) -> PolicyDocument:
+    try:
+        return PolicyDocument.model_validate(value)
+    except ValueError as exc:
+        raise StoredValueError(f"{column} does not hold a valid policy document") from exc
 
 
 class Base(DeclarativeBase):
@@ -75,17 +149,19 @@ class SecurityEventRecord(Base):
             id=self.id,
             timestamp=self.timestamp,
             ingested_at=self.ingested_at,
-            source=self.source,
+            source=_as_enum(EventSource, self.source, column="security_events.source"),
             event_type=self.event_type,
-            severity=self.severity,
+            severity=_as_enum(Severity, self.severity, column="security_events.severity"),
             sensor_id=self.sensor_id,
             asset_id=self.asset_id,
-            src_ip=self.src_ip,
+            src_ip=_as_ip(self.src_ip, column="security_events.src_ip"),
             src_port=self.src_port,
-            dst_ip=self.dst_ip,
+            dst_ip=_as_ip(self.dst_ip, column="security_events.dst_ip"),
             dst_port=self.dst_port,
             protocol=self.protocol,
-            direction=self.direction,
+            direction=_as_optional_enum(
+                Direction, self.direction, column="security_events.direction"
+            ),
             user_id=self.user_id,
             process=self.process,
             summary=self.summary,
@@ -129,9 +205,11 @@ class AnalystFeedbackRecord(Base):
         return AnalystFeedback(
             id=self.id,
             created_at=self.created_at,
-            target_type=self.target_type,
+            target_type=_as_enum(
+                FeedbackTargetType, self.target_type, column="analyst_feedback.target_type"
+            ),
             target_id=self.target_id,
-            label=self.label,
+            label=_as_enum(FeedbackLabel, self.label, column="analyst_feedback.label"),
             detector=self.detector,
             note=self.note,
             tags=self.tags_json or [],
@@ -194,12 +272,14 @@ class PolicyRevisionRecord(Base):
         return PolicyRevision(
             policy_id=self.policy_id,
             version=self.version,
-            document=self.document_json,
+            document=_as_policy_document(
+                self.document_json, column="policy_revisions.document_json"
+            ),
             key_id=self.key_id,
-            algorithm=self.algorithm,
+            algorithm=_as_signature_algorithm(self.algorithm, column="policy_revisions.algorithm"),
             signature=self.signature,
             content_digest=self.content_digest,
-            status=self.status,
+            status=_as_enum(PolicyStatus, self.status, column="policy_revisions.status"),
             created_by=self.created_by,
             created_at=self.created_at,
             approved_by=self.approved_by,
@@ -239,7 +319,9 @@ class PolicyHistoryRecord(Base):
             id=self.id,
             policy_id=self.policy_id,
             version=self.version,
-            event_type=self.event_type,
+            event_type=_as_enum(
+                PolicyHistoryEventType, self.event_type, column="policy_history.event_type"
+            ),
             actor=self.actor,
             created_at=self.created_at,
             metadata=self.metadata_json or {},

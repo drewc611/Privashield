@@ -7,6 +7,13 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, IPvAnyAddress
 
+FirewallMode = Literal["observe", "simulate"]
+FirewallDecision = Literal["would_allow", "would_drop"]
+PermissionTier = Literal["public", "internal", "privileged"]
+DataSensitivity = Literal["public", "internal", "confidential", "restricted"]
+IdentityEventType = Literal["login", "download", "api", "other"]
+FileClassification = Literal["low-risk", "suspicious", "high-risk"]
+
 
 class EventSource(StrEnum):
     ZEEK = "zeek"
@@ -121,8 +128,70 @@ class AIStatus(BaseModel):
     authority: str = "advisory-only"
 
 
+class AdaptiveFeatureContribution(BaseModel):
+    feature: str
+    contribution: float
+
+
+class AdaptiveAssessmentResponse(BaseModel):
+    """A learned score for one event. Advisory, per ADR-0001."""
+
+    event_id: UUID
+    score: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    model_kind: str
+    model_updates: int
+    contributions: list[AdaptiveFeatureContribution] = Field(default_factory=list)
+    #: Structural, not configurable. A learned score never carries authority.
+    advisory_only: bool = True
+
+
+class AdaptiveStatus(BaseModel):
+    """Operator view of the adaptive detector.
+
+    `canary_enabled` and `has_trusted_state` are reported because a deployment
+    that learns without ground truth has no defense against poisoning (ADR-0004),
+    and that has to be visible rather than assumed.
+    """
+
+    scoring_enabled: bool
+    #: What configuration asks for.
+    learning_enabled: bool
+    #: Whether feedback can actually reach the model right now. These come apart
+    #: more easily than they look: with authentication disabled no analyst is a
+    #: verified principal, so the guard weights every update at zero and an
+    #: operator who set the flag would see nothing learn and no reason why.
+    learning_effective: bool
+    learning_blocked_reason: str | None = None
+    model_kind: str
+    updates: int
+    learning_frozen: bool
+    frozen_reason: str | None = None
+    canary_enabled: bool
+    canary_baseline: float
+    canary_interval: int
+    has_trusted_state: bool
+    #: Whether learned state survives a restart. False means the model is
+    #: in-memory only, so everything it learns is lost when the process stops —
+    #: the failure mode that makes a learning feature look like it works and then
+    #: quietly reset.
+    state_durable: bool = False
+    #: The per-source influence cap, reported so `window_sources` is readable. A
+    #: source holds roughly 1/`active_sources` of the window, so a small team can
+    #: sit permanently against this cap and stop training with no other symptom.
+    max_source_share: float
+    #: Updates one source may land per window. This is the bound that caps a
+    #: compromised account; the share above is a training-distribution bound.
+    #: Honest throughput is this times `active_sources`.
+    max_source_updates: int
+    active_sources: int
+    window_sources: dict[str, int] = Field(default_factory=dict)
+    top_features: list[dict[str, object]] = Field(default_factory=list)
+    advisory_only: bool = True
+
+
 class FirewallConfig(BaseModel):
-    mode: Literal["observe", "simulate"] = "observe"
+    mode: FirewallMode = "observe"
     threshold: float = Field(default=0.85, ge=0.0, le=1.0)
 
 
@@ -138,10 +207,10 @@ class FirewallEvaluationRequest(BaseModel):
 
 class FirewallEvaluation(BaseModel):
     decision_id: UUID = Field(default_factory=uuid4)
-    decision: Literal["would_allow", "would_drop"]
+    decision: FirewallDecision
     threshold: float
     risk_score: float
-    mode: Literal["observe", "simulate"]
+    mode: FirewallMode
     enforced: bool = False
     reason: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -174,11 +243,11 @@ class ClassificationMatch(BaseModel):
 
 class DLPClassifyRequest(BaseModel):
     text: str = Field(min_length=1, max_length=200000)
-    permission_tier: Literal["public", "internal", "privileged"] = "internal"
+    permission_tier: PermissionTier = "internal"
 
 
 class DLPClassification(BaseModel):
-    sensitivity: Literal["public", "internal", "confidential", "restricted"]
+    sensitivity: DataSensitivity
     labels: list[str]
     matches: list[ClassificationMatch]
     redacted_text: str
@@ -187,7 +256,7 @@ class DLPClassification(BaseModel):
 class IdentityObservation(BaseModel):
     user_id: str = Field(min_length=1, max_length=256)
     timestamp: datetime
-    event_type: Literal["login", "download", "api", "other"]
+    event_type: IdentityEventType
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     downloaded_bytes: int = Field(default=0, ge=0)
@@ -229,4 +298,4 @@ class FileRiskAssessment(BaseModel):
     risk_score: float = Field(ge=0.0, le=1.0)
     severity: Severity
     indicators: list[str]
-    classification: Literal["low-risk", "suspicious", "high-risk"]
+    classification: FileClassification

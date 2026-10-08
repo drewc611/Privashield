@@ -8,5 +8,10 @@
     "ransomware": 1.0,
     "anomaly": 1.0,
     "correlation": 1.0
+  },
+  "adversarial_telemetry": {
+    "description": "Every case the corpus marks detectable must be detected. Deliberately not a rate over the whole corpus: the corpus contains cases that pattern matching cannot catch, and a whole-corpus rate would fall whenever an honest undetectable case is added, which would punish making the corpus more truthful.",
+    "min_detected_of_detectable": 1.0,
+    "min_structurally_contained": 1.0
   }
 }

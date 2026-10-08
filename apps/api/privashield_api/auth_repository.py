@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .auth_models import LocalPrincipal
+from .auth_models import LocalPrincipal, Role
 from .database import Base
 
 
@@ -48,7 +48,7 @@ class LocalPrincipalRecord(Base):
         return LocalPrincipal(
             id=self.id,
             name=self.name,
-            role=self.role,
+            role=Role(self.role),
             token_digest=self.token_digest,
             token_prefix=self.token_prefix,
             enabled=self.enabled,

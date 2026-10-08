@@ -18,6 +18,7 @@ This directory is the engineering source of truth for the project.
 - `SECURITY_ARCHITECTURE.md` . privileged boundaries, enforcement design, secrets, cryptography, and authorization
 - `PRIVACY.md` . data minimization, retention, local processing, and sensitive-data handling
 - `AI_MODEL_GOVERNANCE.md` . model authority, evaluation, prompt-injection defenses, and model lifecycle
+- `ADAPTIVE_DETECTION.md` . online learning from analyst feedback, poisoning guard, canary and rollback
 - `NETWORK_ENFORCEMENT.md` . sensor and enforcement modes, fast-path constraints, fail behavior, and rollback
 - `AUDIT_LOGGING.md` . tamper-evident audit chain and verification rules
 

@@ -58,32 +58,22 @@ def _suricata_metadata(
     alert = record.get("alert")
     if isinstance(alert, dict):
         metadata["alert"] = {
-            key: alert[key]
-            for key in ("signature_id", "rev", "category", "action")
-            if key in alert
+            key: alert[key] for key in ("signature_id", "rev", "category", "action") if key in alert
         }
 
     if include_application_metadata:
         dns = record.get("dns")
         if isinstance(dns, dict):
-            metadata["dns"] = {
-                key: dns[key]
-                for key in ("rrname", "rrtype", "rcode")
-                if key in dns
-            }
+            metadata["dns"] = {key: dns[key] for key in ("rrname", "rrtype", "rcode") if key in dns}
         http = record.get("http")
         if isinstance(http, dict):
             metadata["http"] = {
-                key: http[key]
-                for key in ("hostname", "http_method", "status")
-                if key in http
+                key: http[key] for key in ("hostname", "http_method", "status") if key in http
             }
         tls = record.get("tls")
         if isinstance(tls, dict):
             metadata["tls"] = {
-                key: tls[key]
-                for key in ("sni", "version", "ja3", "ja4")
-                if key in tls
+                key: tls[key] for key in ("sni", "version", "ja3", "ja4") if key in tls
             }
 
     return metadata
@@ -118,9 +108,7 @@ def normalize_suricata(
     )
 
 
-def _zeek_metadata(
-    record: dict[str, Any], *, include_application_metadata: bool
-) -> dict[str, Any]:
+def _zeek_metadata(record: dict[str, Any], *, include_application_metadata: bool) -> dict[str, Any]:
     metadata: dict[str, Any] = {}
     for key in (
         "uid",

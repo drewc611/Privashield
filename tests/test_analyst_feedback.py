@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -21,7 +22,7 @@ def client() -> TestClient:
     )
 
 
-def ingest_event(api: TestClient) -> dict:
+def ingest_event(api: TestClient) -> dict[str, Any]:
     response = api.post(
         "/api/v1/events/ingest",
         json={
@@ -35,7 +36,8 @@ def ingest_event(api: TestClient) -> dict:
         },
     )
     assert response.status_code == 201
-    return response.json()
+    body: dict[str, Any] = response.json()
+    return body
 
 
 def test_event_feedback_requires_existing_event() -> None:

@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from .schemas import FirewallConfig, FirewallEvaluation, FirewallEvaluationRequest
+from .schemas import (
+    FirewallConfig,
+    FirewallDecision,
+    FirewallEvaluation,
+    FirewallEvaluationRequest,
+    FirewallMode,
+)
 
 
 class FirewallController:
-    def __init__(self, mode: str = "observe", threshold: float = 0.85) -> None:
+    def __init__(self, mode: FirewallMode = "observe", threshold: float = 0.85) -> None:
         self._config = FirewallConfig(mode=mode, threshold=threshold)
 
     @property
@@ -16,7 +22,9 @@ class FirewallController:
         return self.config
 
     def evaluate(self, request: FirewallEvaluationRequest) -> FirewallEvaluation:
-        decision = "would_drop" if request.risk_score >= self._config.threshold else "would_allow"
+        decision: FirewallDecision = (
+            "would_drop" if request.risk_score >= self._config.threshold else "would_allow"
+        )
         return FirewallEvaluation(
             decision=decision,
             threshold=self._config.threshold,
