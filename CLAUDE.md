@@ -53,9 +53,12 @@ to two decimals, never copied from the displayed figure. The report displays
 also precisely the blind spot above, so copying the display lands in it by
 construction. A passing run prints the attainable floor; use that number.
 
-Type checking covers the whole tree. `privashield_api.database` carries one
-documented mypy override for its ORM-to-Pydantic conversions. Narrow it as those
-conversions are made explicit; do not add new exclusions to work around an error.
+Type checking covers the whole tree with no per-module exclusions. Keep it that
+way: do not add one to work around an error. The last exclusion was
+`privashield_api.database`'s blanket `arg-type` suppression, removed by making its
+ORM-to-domain conversions explicit — a stored value outside its column's domain
+now raises `StoredValueError` naming the column and the value, rather than being
+coerced silently.
 
 The detection benchmark runs against committed thresholds in
 `evaluation/thresholds.json`. Do not lower a threshold to make a change pass.

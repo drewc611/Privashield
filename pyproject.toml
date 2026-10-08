@@ -106,6 +106,3 @@ disallow_incomplete_defs = false
 # validates these at runtime, so they are type-checker gaps rather than defects,
 # but the conversions should be made explicit. Until then the boundary is
 # scoped here rather than weakening arg-type checking repository-wide.
-[[tool.mypy.overrides]]
-module = ["privashield_api.database"]
-disable_error_code = ["arg-type"]
