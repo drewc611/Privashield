@@ -180,6 +180,10 @@ class AdaptiveStatus(BaseModel):
     #: source holds roughly 1/`active_sources` of the window, so a small team can
     #: sit permanently against this cap and stop training with no other symptom.
     max_source_share: float
+    #: Updates one source may land per window. This is the bound that caps a
+    #: compromised account; the share above is a training-distribution bound.
+    #: Honest throughput is this times `active_sources`.
+    max_source_updates: int
     active_sources: int
     window_sources: dict[str, int] = Field(default_factory=dict)
     top_features: list[dict[str, object]] = Field(default_factory=list)

@@ -123,7 +123,7 @@ Authenticated readers. Operator view of the detector: model kind, update count, 
 
 Two fields answer different questions and routinely disagree. `learning_enabled` is what configuration asks for; `learning_effective` is whether feedback can actually reach the model right now, with `learning_blocked_reason` naming the obstacle. They come apart most often because authentication is disabled, in which case no analyst is a verified principal and the guard weights every update at zero — so learning would appear switched on and silently do nothing.
 
-`state_durable` reports whether learned state survives a restart; false means the model is in-memory only. `max_source_share` and `active_sources` make `window_sources` interpretable: a source holds roughly 1/`active_sources` of the window, so a small team can sit permanently against the cap and stop training with no other symptom.
+`state_durable` reports whether learned state survives a restart; false means the model is in-memory only. `max_source_updates` is the bound that caps a compromised account, and honest throughput is that times `active_sources`. `max_source_share` is a training-distribution bound rather than a security one; ADR-0005 explains why a share cannot be the security bound and `docs/ADAPTIVE_DETECTION.md` has the measurements.
 
 ### GET `/learning/score/{event_id}`
 Authenticated readers. Returns the learned score for one stored event, its confidence, and for the linear model the per-feature contributions behind it. Returns 503 when scoring is switched off and 404 when the event is unknown.

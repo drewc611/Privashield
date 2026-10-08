@@ -425,3 +425,105 @@ def test_reading_the_window_does_not_change_it() -> None:
 
     assert guard.window_stats(NOW) == {}
     assert len(guard._history) == 5, "window_stats pruned as a side effect of being read"
+
+
+# --------------------------------------------------------------------------
+# Which bound is the security bound (ADR-0005)
+# --------------------------------------------------------------------------
+
+
+def _land(
+    analysts: int, attacker: bool, attempts: int = 400, **overrides: object
+) -> tuple[int, int]:
+    """Run honest analysts, optionally alongside one compromised account."""
+    guard = PoisoningGuard(config=GuardConfig(**overrides))  # type: ignore[arg-type]
+    honest = poisoned = 0
+    for index in range(attempts):
+        moment = NOW + timedelta(seconds=index)
+        sources = [f"analyst-{index % analysts}"]
+        if attacker:
+            sources.append("compromised")
+        for source in sources:
+            decision = guard.evaluate(
+                label=FeedbackLabel.TRUE_POSITIVE,
+                source=source,
+                identity_verified=True,
+                now=moment,
+            )
+            if decision.accepted:
+                guard.record(label=FeedbackLabel.TRUE_POSITIVE, source=source, now=moment)
+                if source == "compromised":
+                    poisoned += 1
+                else:
+                    honest += 1
+    return honest, poisoned
+
+
+def test_the_source_budget_binds_exactly_whatever_the_team_size() -> None:
+    """The property that makes this the security bound: it does not vary.
+
+    A share of the window varies with traffic; the number of updates that moves
+    the verdict does not. ADR-0004 measured 15-25 as enough, so a bound that
+    scales with volume cannot be the one that holds.
+    """
+    for analysts in (1, 2, 3, 6, 10):
+        _, poisoned = _land(analysts, attacker=True)
+        assert poisoned == 20, f"{analysts} analysts: attacker landed {poisoned}, budget is 20"
+
+
+def test_a_share_cap_alone_lets_far_more_poison_through_than_moves_the_verdict() -> None:
+    """The measurement behind the change, kept so the reasoning is not lost.
+
+    Held to 35% of the window with the budget disabled, one account lands an order
+    of magnitude more than the 15 updates ADR-0004 measured as sufficient.
+    """
+    _, poisoned = _land(
+        3,
+        attacker=True,
+        max_source_share=0.35,
+        max_source_updates=10**9,
+        label_flood_threshold=10**9,
+    )
+    assert poisoned > 150, f"expected a share cap to admit well over 150, got {poisoned}"
+
+
+def test_honest_throughput_scales_with_the_team() -> None:
+    # The budget is per source, so N analysts get N times it. That is what makes
+    # it usable where a fixed share was not.
+    landed = [_land(n, attacker=False)[0] for n in (1, 2, 3, 4)]
+    assert landed == [20, 40, 60, 80], landed
+
+
+def test_a_small_team_is_no_longer_stalled_by_the_share_cap() -> None:
+    """Regression: at the 0.35 default a team of three or fewer trained ~20 and
+    then stopped permanently, because each source holds about 1/N of the window.
+    The cap is now floored at an even split."""
+    for analysts in (1, 2, 3):
+        # Isolate the share rule: both absolute bounds off, or they bind first
+        # and the test measures the wrong thing.
+        honest, _ = _land(
+            analysts,
+            attacker=False,
+            max_source_updates=10**9,
+            label_flood_threshold=10**9,
+        )
+        assert honest > 100, f"{analysts} analysts stalled at {honest}"
+
+
+def test_the_budget_refusal_names_itself() -> None:
+    guard = PoisoningGuard(config=GuardConfig(max_source_updates=3))
+    for _ in range(3):
+        guard.record(label=FeedbackLabel.TRUE_POSITIVE, source="analyst-a", now=NOW)
+    decision = guard.evaluate(
+        label=FeedbackLabel.TRUE_POSITIVE, source="analyst-a", identity_verified=True, now=NOW
+    )
+    assert decision.accepted is False
+    assert decision.reason is RejectionReason.SOURCE_BUDGET
+    assert "budget is 3" in (decision.detail or "")
+
+
+def test_an_impossible_budget_is_refused_at_construction() -> None:
+    with pytest.raises(ValueError, match="max_source_updates"):
+        GuardConfig(max_source_updates=0)
+    with pytest.raises(ValueError, match="even_split_slack"):
+        GuardConfig(even_split_slack=0.5)

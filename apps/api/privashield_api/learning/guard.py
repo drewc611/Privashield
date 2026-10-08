@@ -57,6 +57,7 @@ class RejectionReason(StrEnum):
     NOT_TRAINABLE = "not_trainable"
     UNVERIFIED_IDENTITY = "unverified_identity"
     INFLUENCE_CAP = "influence_cap"
+    SOURCE_BUDGET = "source_budget"
     LABEL_FLOOD = "label_flood"
     TRAINING_FROZEN = "training_frozen"
 
@@ -87,12 +88,34 @@ class GuardConfig:
     #: Window over which influence and flood limits are measured.
     window: timedelta = timedelta(hours=24)
     #: Maximum share of updates in the window that one source may supply.
+    #:
+    #: This is a training-distribution bound, not a security bound, and the
+    #: distinction is measured rather than asserted. Held to 0.35 of a 500-entry
+    #: window, one source still lands ~175 observations, where ADR-0004 measured
+    #: 15-25 as enough to move the verdict. No value of a *share* can be the
+    #: security bound: it scales with traffic, and the damage threshold does not.
+    #: Its real job is to stop one analyst's opinions dominating what the model
+    #: learns. `max_source_updates` is the security bound.
     max_source_share: float = 0.35
+    #: Never enforce the share cap tighter than an even split among the sources
+    #: actually active, times this slack. Without it the share rule is a function
+    #: of team size: each of N sources holds about 1/N of the window, so at 0.35
+    #: a team of three or fewer trips the cap permanently and stops training. The
+    #: slack covers the +1 bias in the projected-share arithmetic.
+    even_split_slack: float = 1.15
     #: Below this many updates in the window, the share cap is not enforced —
     #: otherwise the very first analyst to give feedback trips it immediately.
     min_updates_before_capping: int = 20
-    #: Identical-label updates from one source within the window that count as
-    #: a flood rather than ordinary queue work.
+    #: The security bound: updates one source may supply in the window, whatever
+    #: the team size or traffic volume. Measured to bind exactly — at 20 a single
+    #: compromised account lands 20 and no more, with 1, 3 or 10 honest analysts
+    #: alongside it — while honest throughput scales with the team, because N
+    #: analysts get N times this. Set from ADR-0004's measured 15-25 danger range
+    #: rather than chosen for feel.
+    max_source_updates: int = 20
+    #: Identical-label updates from one source within the window that count as a
+    #: flood rather than ordinary queue work. Retained as a per-label signal; the
+    #: per-source bound above is what caps total influence.
     label_flood_threshold: int = 50
 
     def __post_init__(self) -> None:
@@ -100,6 +123,10 @@ class GuardConfig:
             raise ValueError("unverified_weight must be between 0 and verified_weight")
         if not 0.0 < self.max_source_share <= 1.0:
             raise ValueError("max_source_share must be in (0, 1]")
+        if self.even_split_slack < 1.0:
+            raise ValueError("even_split_slack must be at least 1.0")
+        if self.max_source_updates < 1:
+            raise ValueError("max_source_updates must be positive")
         if self.window <= timedelta(0):
             raise ValueError("window must be positive")
 
@@ -230,6 +257,17 @@ class PoisoningGuard:
                 if item.label == label:
                     matching_label += 1
 
+        # The security bound, checked first because it is the one that binds.
+        if same_source >= self.config.max_source_updates:
+            return GuardDecision(
+                accepted=False,
+                reason=RejectionReason.SOURCE_BUDGET,
+                detail=(
+                    f"source supplied {same_source} updates within "
+                    f"{self.config.window}, budget is {self.config.max_source_updates}"
+                ),
+            )
+
         if matching_label >= self.config.label_flood_threshold:
             return GuardDecision(
                 accepted=False,
@@ -245,13 +283,18 @@ class PoisoningGuard:
             # Share is measured as it would stand *after* accepting this one,
             # so the cap cannot be walked past one update at a time.
             projected = (same_source + 1) / (total + 1)
-            if projected > self.config.max_source_share:
+            # Never tighter than an even split among the sources actually active.
+            # A share cap below 1/N refuses everyone once N sources are sharing
+            # the window evenly, which is how a small team stalled permanently.
+            active = max(len({item.source for item in self._history} | {source}), 1)
+            effective = max(self.config.max_source_share, self.config.even_split_slack / active)
+            if projected > effective:
                 return GuardDecision(
                     accepted=False,
                     reason=RejectionReason.INFLUENCE_CAP,
                     detail=(
                         f"source would hold {projected:.1%} of updates in window, "
-                        f"cap is {self.config.max_source_share:.1%}"
+                        f"cap is {effective:.1%} ({active} active sources)"
                     ),
                 )
 

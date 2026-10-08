@@ -6,7 +6,7 @@ PYTHON_VERSION ?= 3.12
 VENV ?= .venv
 BIN := $(VENV)/bin
 PY := $(BIN)/python
-COVERAGE_MIN ?= 85.96
+COVERAGE_MIN ?= 86.03
 
 .DEFAULT_GOAL := help
 

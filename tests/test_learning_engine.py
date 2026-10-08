@@ -281,7 +281,11 @@ def test_learning_without_a_canary_is_visible_in_status() -> None:
 
 def test_poisoning_is_visible_in_the_status_snapshot() -> None:
     detector = AdaptiveDetector(
-        guard=PoisoningGuard(config=GuardConfig(max_source_share=1.0, label_flood_threshold=1000))
+        guard=PoisoningGuard(
+            config=GuardConfig(
+                max_source_share=1.0, label_flood_threshold=1000, max_source_updates=1000
+            )
+        )
     )
     for index in range(20):
         detector.learn(MALICIOUS, feedback(), source=f"analyst-{index % 4}", now=NOW)

@@ -64,6 +64,7 @@ async def learning_status(
         has_trusted_state=bool(snapshot["has_trusted_state"]),
         state_durable=bool(snapshot["state_durable"]),
         max_source_share=float(snapshot["max_source_share"]),
+        max_source_updates=int(snapshot["max_source_updates"]),
         active_sources=int(snapshot["active_sources"]),
         window_sources=dict(snapshot["window_sources"]),
         top_features=list(snapshot["top_features"]),

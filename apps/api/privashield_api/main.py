@@ -62,6 +62,8 @@ def _build_adaptive_detector(settings: Settings) -> AdaptiveDetector:
     guard_config = GuardConfig(
         window=timedelta(hours=settings.adaptive_window_hours),
         max_source_share=settings.adaptive_max_source_share,
+        even_split_slack=settings.adaptive_even_split_slack,
+        max_source_updates=settings.adaptive_max_source_updates,
         min_updates_before_capping=settings.adaptive_min_updates_before_capping,
         label_flood_threshold=settings.adaptive_label_flood_threshold,
     )

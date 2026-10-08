@@ -197,39 +197,40 @@ measuring the thing it was set to protect. Without the ratchet a model that
 learned its way to perfect accuracy could be pushed back down to just above its
 startup baseline without tripping anything.
 
-## Team size decides the influence cap
+## Two bounds, and only one is a security bound
 
-The cap refuses feedback once one source would hold more than
-`adaptive_max_source_share` of the rolling window. With N active analysts a
-source holds roughly 1/N of it, so the cap and the size of the team are the same
-question. Measured against the 0.35 default, over 500 submitted labels:
+ADR-0005 has the measurements; this is the shape of them.
 
-| Active analysts | Updates accepted | Outcome |
-| --------------- | ---------------- | ------- |
-| 1 | 20 | stalls permanently |
-| 2 | 20 | stalls permanently |
-| 3 | 21 | stalls permanently |
-| 4 | 200 | stalls |
-| 6 | 300 | stalls |
-| 10 | 500 | keeps going |
+`max_source_updates` is the security bound: updates one source may land in the
+window, 20 by default. It binds exactly, and that exactness is the point. A share
+of the window scales with traffic; the number of poisoned updates that moves the
+verdict does not, and ADR-0004 measured that number at 15 to 25. Measured with one
+compromised account beside N honest analysts, the budget holds it to 20 at every
+team size, where a 35% share cap admitted 323.
 
-For a local-first appliance, one or two analysts is the common case rather than
-the edge case, so the default makes the detector stop learning after about twenty
-updates with no symptom other than `learning.update.refused` entries in the audit
-ledger. That is why the bounds are configurable and why `status()` now reports
-`max_source_share` and `active_sources`: a stalled detector should be diagnosable
-from the status endpoint instead of inferred from the ledger.
+`max_source_share` is a training-distribution bound. Its job is to stop one
+analyst's opinions dominating what the model learns, which is a model-quality
+property rather than a security one. It is floored at an even split among active
+sources, because a cap below 1/N refuses everyone once N sources share the window
+evenly — which is how a team of three or fewer used to stall at about twenty
+updates and never recover.
 
-Raising the cap weakens rate limiting, and ADR-0004 already measured what that
-costs. It is a deliberate trade rather than a free one, and the canary plus
-rollback is what makes it survivable: a single-analyst deployment that sets the
-cap to 1.0 has no rate limiting at all and is relying entirely on ground truth to
-catch a compromised account. Keeping the canary armed is not optional there.
+Honest throughput is the budget times the number of active analysts:
 
-A better rule probably exists — refusing a source that holds disproportionately
-more than its peers, rather than more than a fixed fraction — but inventing one
-in passing is how a defense ends up subtly broken, so it is left as follow-up
-rather than guessed at here.
+| Active analysts | 1 | 2 | 3 | 4 | 6 | 10 |
+| --------------- | - | - | - | - | - | -- |
+| Honest updates per window | 20 | 40 | 60 | 80 | 120 | 200 |
+| Poisoned updates one account can land | 20 | 20 | 20 | 20 | 20 | 20 |
+
+Twenty updates per analyst per 24-hour window suits triage and does not suit bulk
+labelling, so the budget is configuration and `status()` reports it alongside
+`active_sources`. Raising it weakens the bound in direct proportion; the
+arithmetic is here so that is a decision rather than a surprise.
+
+Neither bound is the control that limits damage. The canary and rollback are, and
+a single-analyst deployment is relying on them more heavily than a larger one,
+because volume alone cannot distinguish the analyst from a compromised analyst
+when there is only one.
 
 ## Durability
 

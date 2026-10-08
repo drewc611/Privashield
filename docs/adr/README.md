@@ -12,7 +12,7 @@ Architecture Decision Records capture consequential decisions that are expensive
 
 ## Naming
 
-Use sequential files such as `0004-short-decision-title.md`.
+Use sequential files such as `0006-short-decision-title.md`.
 
 ## Template
 

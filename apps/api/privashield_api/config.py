@@ -42,7 +42,15 @@ class Settings(BaseSettings):
     # stalls at about 20 updates and never trains further. Raising it weakens rate
     # limiting, which ADR-0004 already establishes is not the control that bounds
     # damage — the canary is. See docs/ADAPTIVE_DETECTION.md before changing it.
+    # The security bound: updates one source may land per window, whatever the
+    # team size. Measured to cap a compromised account at exactly this number
+    # with 1, 3 or 10 honest analysts alongside it. Honest throughput is this
+    # times the number of active analysts, so a team doing bulk labelling raises
+    # it knowingly — ADR-0005 has the measurements.
+    adaptive_max_source_updates: int = 20
+    # A training-distribution bound, not a security one. See ADR-0005.
     adaptive_max_source_share: float = 0.35
+    adaptive_even_split_slack: float = 1.15
     adaptive_min_updates_before_capping: int = 20
     adaptive_label_flood_threshold: int = 50
     adaptive_window_hours: int = 24

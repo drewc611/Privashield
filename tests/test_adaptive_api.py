@@ -398,10 +398,11 @@ def test_learning_survives_a_restart(tmp_path: Path) -> None:
         "bootstrap_admin_token": "test-admin-token",
         "adaptive_state_path": str(state),
         "adaptive_canary_interval": 5,
-        # One principal submits every label here, so at the default 0.35 cap the
-        # guard refuses everything past ~20 updates. That is the cap doing its
-        # job; it is exercised on its own below.
+        # One principal submits every label here, so both source bounds would
+        # otherwise stop it: the share cap and the 20-update budget. Both are
+        # exercised on their own below; this test is about persistence.
         "adaptive_max_source_share": 1.0,
+        "adaptive_max_source_updates": 100,
     }
     headers = {"Authorization": "Bearer test-admin-token"}
 
@@ -454,12 +455,12 @@ def test_flush_is_a_no_op_without_a_state_path() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_a_single_analyst_hits_the_influence_cap_at_the_default() -> None:
-    """Measured, and the reason the bounds are now configurable.
+def test_a_single_analyst_stops_at_the_source_budget() -> None:
+    """The bound that stops a single source is the budget, not the share.
 
-    A source holds roughly 1/N of the window with N active analysts, so at the
-    default 0.35 cap a one-analyst deployment stops training at about 20 updates.
-    For a local-first appliance that is the common case, not the edge case.
+    ADR-0005 has the measurements: the share cap held one source to 35% of the
+    window, which on a 500-entry window is ~175 observations where 15-25 move the
+    verdict. The budget binds at exactly its value whatever the team size.
     """
     with client(
         adaptive_learning_enabled=True,
@@ -476,18 +477,48 @@ def test_a_single_analyst_hits_the_influence_cap_at_the_default() -> None:
             )
         body = api.get("/api/v1/learning/status", headers=headers).json()
 
-    assert body["updates"] <= 25, "the cap should have stopped a single source"
-    # And the operator can now see why, rather than watching it stall in silence.
+    # The per-source budget is what stops it now, and it binds exactly.
+    assert body["updates"] == 20
+    assert body["max_source_updates"] == 20
+    # And the operator can see why, rather than watching it stall in silence.
     assert body["max_source_share"] == pytest.approx(0.35)
     assert body["active_sources"] == 1
 
 
-def test_raising_the_cap_lets_a_small_team_keep_training() -> None:
+def test_a_small_team_no_longer_needs_the_share_cap_raised() -> None:
+    """The share cap is floored at an even split, so it stops being the blocker.
+
+    Before, a one-analyst deployment had to set the share cap to 1.0 to train at
+    all. Now the binding constraint is the per-source budget, which is the bound
+    that is actually a security bound.
+    """
     with client(
         adaptive_learning_enabled=True,
         auth_mode="local",
         bootstrap_admin_token="test-admin-token",
-        adaptive_max_source_share=1.0,
+    ) as api:
+        headers = {"Authorization": "Bearer test-admin-token"}
+        for _ in range(40):
+            event = ingest_authenticated(api, headers)
+            api.post(
+                "/api/v1/feedback",
+                json={"target_type": "event", "target_id": event["id"], "label": "true_positive"},
+                headers=headers,
+            )
+        body = api.get("/api/v1/learning/status", headers=headers).json()
+
+    # The default share cap is untouched, and a single analyst still trains up to
+    # the budget rather than stalling at the share cap.
+    assert body["max_source_share"] == pytest.approx(0.35)
+    assert body["updates"] == 20 == body["max_source_updates"]
+
+
+def test_raising_the_source_budget_raises_throughput() -> None:
+    with client(
+        adaptive_learning_enabled=True,
+        auth_mode="local",
+        bootstrap_admin_token="test-admin-token",
+        adaptive_max_source_updates=40,
     ) as api:
         headers = {"Authorization": "Bearer test-admin-token"}
         for _ in range(40):
@@ -500,7 +531,7 @@ def test_raising_the_cap_lets_a_small_team_keep_training() -> None:
         body = api.get("/api/v1/learning/status", headers=headers).json()
 
     assert body["updates"] == 40
-    assert body["max_source_share"] == pytest.approx(1.0)
+    assert body["max_source_updates"] == 40
 
 
 def test_the_guard_bounds_come_from_configuration() -> None:
